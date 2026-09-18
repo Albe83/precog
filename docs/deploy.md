@@ -64,10 +64,12 @@ helm install precog deploy/helm/precog \
 ```
 
 Defaults are conservative: an **ephemeral `emptyDir`** cache and a single
-replica, so no StorageClass or RWX support is assumed. A `startupProbe` allows
-the cold start (download + model load) before liveness runs.
+replica, so no StorageClass is assumed. A `startupProbe` allows the cold start
+(download + model load) before liveness runs.
 
-To persist the cache, enable a PVC (created by the chart):
+To persist the cache, enable a PVC (created by the chart). The claim defaults to
+**`ReadWriteMany`** so scaling up reuses the same volume instead of recreating
+it:
 
 ```bash
 helm install precog deploy/helm/precog \
@@ -75,16 +77,16 @@ helm install precog deploy/helm/precog \
   --set modelCache.persistence.size=5Gi
 ```
 
-Use `modelCache.persistence.existingClaim` to bring your own claim. For more
-than one replica sharing a single cache, use `ReadWriteMany`:
+If your StorageClass only supports `ReadWriteOnce`, override it (keep a single
+replica in that case):
 
 ```bash
---set modelCache.persistence.accessModes[0]=ReadWriteMany --set replicaCount=2
+--set modelCache.persistence.accessModes[0]=ReadWriteOnce
 ```
 
-Other useful values: `modelCache.preload` (`auto`/`always`/`never`),
-`modelCache.revision`, `modelCache.hfTokenSecret` (Secret name; token in key
-`hf-token`).
+Use `modelCache.persistence.existingClaim` to bring your own claim. Other useful
+values: `modelCache.preload` (`auto`/`always`/`never`), `modelCache.revision`,
+`modelCache.hfTokenSecret` (Secret name; token in key `hf-token`).
 
 ```bash
 kubectl port-forward svc/precog 8000:80

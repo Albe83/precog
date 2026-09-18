@@ -12,8 +12,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   downloads the pinned revision into `PRECOG_CACHE_DIR` at startup when missing
   and reuses the cache volume (ephemeral directory, named volume, bind mount or
   PVC). Set `PRECOG_BAKE_WEIGHTS=true` for an air-gapped image.
-- Helm: new `modelCache` values (ephemeral `emptyDir` by default, optional PVC,
-  `preload`, `revision`, `hfTokenSecret`) and a `startupProbe` for cold starts.
+- Helm: new `modelCache` values (ephemeral `emptyDir` by default, optional PVC
+  that defaults to `ReadWriteMany` so scaling reuses the volume, `preload`,
+  `revision`, `hfTokenSecret`) and a `startupProbe` for cold starts.
 - Compose: named `precog-models` volume mounted at `/opt/precog/hf`.
 
 ## [0.1.0] - 2026-09-18

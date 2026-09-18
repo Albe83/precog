@@ -32,8 +32,10 @@ modelCache:
     # true  -> PersistentVolumeClaim (created unless existingClaim is set)
     enabled: false
     existingClaim: ""
+    # ReadWriteMany by default so scaling up reuses the same volume instead of
+    # recreating it. Set ReadWriteOnce if your StorageClass does not support RWX.
     accessModes:
-      - ReadWriteOnce
+      - ReadWriteMany
     size: 5Gi
     storageClass: ""
 
