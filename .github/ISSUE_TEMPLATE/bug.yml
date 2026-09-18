@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a defect.
+title: "[type/area] "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: Observed behaviour, including errors and logs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version/commit, deployment (standalone/k8s), device, context.
+    validations:
+      required: false
