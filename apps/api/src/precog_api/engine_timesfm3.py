@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from precog_api.config import Settings
-from precog_schemas import ForecastRequest, Mode, SeriesForecast
+from precog_schemas import QUANTILE_LEVELS, ForecastRequest, Mode, SeriesForecast
 
 
 class TimesFM3Engine:
@@ -70,15 +70,16 @@ class TimesFM3Engine:
         )
         results: list[SeriesForecast] = []
         for series, output in zip(request.series, outputs, strict=True):
+            quantiles: list[list[float]] | None = None
+            if request.options.return_quantiles and output.quantiles is not None:
+                quantiles = _calibrate_quantiles(
+                    np.asarray(output.quantiles), request.options.quantile_spread_scale
+                ).tolist()
             results.append(
                 SeriesForecast(
                     id=series.id,
                     forecast=np.asarray(output.forecast).reshape(-1).tolist(),
-                    quantiles=(
-                        np.asarray(output.quantiles).tolist()
-                        if request.options.return_quantiles and output.quantiles is not None
-                        else None
-                    ),
+                    quantiles=quantiles,
                 )
             )
         return results
@@ -108,6 +109,8 @@ class TimesFM3Engine:
             if request.options.return_quantiles and output.quantiles is not None
             else None
         )
+        if quantiles is not None:
+            quantiles = _calibrate_quantiles(quantiles, request.options.quantile_spread_scale)
         return [
             SeriesForecast(
                 id=series.id,
@@ -140,3 +143,12 @@ def _stacked_covariates(covariates: Mapping[str, list[float]]) -> np.ndarray | N
     if not covariates:
         return None
     return np.stack([np.asarray(values, dtype=np.float32) for values in covariates.values()])
+
+
+def _calibrate_quantiles(quantiles: np.ndarray, scale: float) -> np.ndarray:
+    """Scale the quantile spread around the median, preserving order."""
+    if scale == 1.0:
+        return quantiles
+    median_index = len(QUANTILE_LEVELS) // 2
+    median = quantiles[..., median_index : median_index + 1]
+    return median + (quantiles - median) * scale

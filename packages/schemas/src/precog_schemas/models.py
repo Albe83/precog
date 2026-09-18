@@ -34,6 +34,10 @@ class ForecastOptions(BaseModel):
 
     return_quantiles: bool = True
     symmetric_averaging: bool = False
+    # Scale the quantile spread around the median (1.0 = model output). Values
+    # above 1 widen the prediction intervals; useful to correct under-coverage
+    # on very stable series.
+    quantile_spread_scale: float = Field(default=1.0, gt=0, le=10)
 
 
 class ForecastRequest(BaseModel):
