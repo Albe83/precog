@@ -119,6 +119,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Benchmarks: aggregate baseline (MAE, MASE, coverage, pinball) committed to
+  `benchmarks/data/benchmark_baseline.json` with a `--check` regression gate.
 - SDK: `precog` CLI (`precog forecast --file|--csv`, `precog capabilities`).
 - Docs: ADR for API versioning and deprecation (`docs/adr/0004-api-versioning.md`).
 - CI: published images carry SBOM and provenance attestations
