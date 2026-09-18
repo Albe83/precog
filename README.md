@@ -32,6 +32,33 @@ curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d '{
 }'
 ```
 
+## Modes and covariates
+
+`POST /v1/forecast` has two modes:
+
+- **univariate** — each series is forecast independently; covariates are
+  attached to each series (`past_covariates`, `future_covariates`).
+- **multivariate** — all series are target variates of one joint context;
+  covariates are declared once at request level.
+
+Past covariates must match the context length; future covariates must match
+`context + horizon`.
+
+```bash
+curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d '{
+  "mode": "multivariate",
+  "horizon": 3,
+  "series": [
+    {"id": "brand_a", "target": [100,102,101,105,107,106]},
+    {"id": "brand_b", "target": [80,81,80,83,85,84]}
+  ],
+  "past_covariates": {"footfall": [0.1,0.2,0.15,0.3,0.4,0.35]},
+  "future_covariates": {"promo": [0,1,0,0,0,1,0,1,0]}
+}'
+```
+
+The same contract is available as OpenAPI examples on `/docs`.
+
 ## Configuration
 
 All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):

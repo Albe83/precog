@@ -53,6 +53,18 @@ response = client.forecast(
         }
     ],
 )
+
+# Multivariate with request-level covariates (shared across the target variates)
+response = client.forecast(
+    mode="multivariate",
+    horizon=3,
+    series=[
+        {"id": "brand_a", "target": [100, 102, 101, 105, 107, 106]},
+        {"id": "brand_b", "target": [80, 81, 80, 83, 85, 84]},
+    ],
+    past_covariates={"footfall": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35]},
+    future_covariates={"promo": [0, 1, 0, 0, 0, 1, 0, 1, 0]},
+)
 ```
 
 You can also send an already-built `ForecastRequest` with

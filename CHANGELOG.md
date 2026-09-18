@@ -62,6 +62,13 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- API: multivariate forecasting with covariates. In `mode=multivariate` the
+  target variates share one joint context and covariates are declared once at
+  request level (`past_covariates`/`future_covariates`); per-series covariates
+  remain for univariate mode. The engine now maps them to TimesFM-3's
+  `predict_batch`.
+- SDK: `forecast(..., past_covariates=..., future_covariates=...)` for
+  request-level covariates.
 - MCP: `PRECOG_MCP_ALLOWED_HOSTS` to configure the HTTP transport Host
   validation (comma-separated list, or `*` to disable DNS-rebinding protection).
   Required when the server runs behind a gateway such as agentgateway.
