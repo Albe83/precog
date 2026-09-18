@@ -53,6 +53,19 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg
 - `release-please` opens a release PR from `main`; merging it tags the source and
   updates `CHANGELOG.md`. No artifacts (no weights, no images) are published.
 
+## Branch protection
+
+`main` is protected (enforced for admins too):
+
+- Changes land through a pull request; direct pushes and force-pushes are
+  rejected.
+- Required status checks: `quality` (ci), `image` (build), `audit` + `sbom`
+  (security), `lint` (helm/kustomize).
+- Linear history and conversation resolution are required.
+
+To make an emergency change, temporarily disable the ruleset/branch protection
+in repository settings and re-enable it afterwards.
+
 ## Definition of Done
 
 - Acceptance criteria of the issue satisfied.
