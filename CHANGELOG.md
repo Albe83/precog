@@ -15,6 +15,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 - Helm: new `modelCache` values (ephemeral `emptyDir` by default, optional PVC
   that defaults to `ReadWriteMany` so scaling reuses the volume, `preload`,
   `revision`, `hfTokenSecret`) and a `startupProbe` for cold starts.
+- Helm: optional model-download `initContainer`
+  (`modelCache.downloadInitContainer.enabled`); the app container then uses
+  `PRECOG_PRELOAD=never`. `PRECOG_PRELOAD=never` now fails fast when the model
+  is absent.
 - Compose: named `precog-models` volume mounted at `/opt/precog/hf`.
 
 ## [0.1.0] - 2026-09-18

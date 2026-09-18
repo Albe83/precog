@@ -29,6 +29,39 @@ spec:
         fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
+      {{- if .Values.modelCache.downloadInitContainer.enabled }}
+      initContainers:
+        - name: download-model
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["precog-download-model"]
+          env:
+            - name: PRECOG_MODEL_ID
+              value: {{ .Values.modelCache.modelId | quote }}
+            - name: PRECOG_MODEL_REVISION
+              value: {{ .Values.modelCache.revision | quote }}
+            - name: PRECOG_CACHE_DIR
+              value: {{ .Values.modelCache.mountPath | quote }}
+            - name: PRECOG_PRELOAD
+              value: always
+            {{- if .Values.modelCache.hfTokenSecret }}
+            - name: PRECOG_HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modelCache.hfTokenSecret }}
+                  key: hf-token
+            {{- end }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: {{ .Values.modelCache.mountPath }}
+          resources:
+            {{- toYaml .Values.modelCache.downloadInitContainer.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      {{- end }}
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -47,7 +80,7 @@ spec:
             - name: PRECOG_CACHE_DIR
               value: {{ .Values.modelCache.mountPath | quote }}
             - name: PRECOG_PRELOAD
-              value: {{ .Values.modelCache.preload | quote }}
+              value: {{ ternary "never" .Values.modelCache.preload .Values.modelCache.downloadInitContainer.enabled | quote }}
             {{- if .Values.config.apiKey }}
             - name: PRECOG_API_KEY
               valueFrom:

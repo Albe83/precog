@@ -110,6 +110,32 @@ After loading the image into the cluster, verify the chart end-to-end:
 CLEANUP=false deploy/smoke-test.sh      # installs, checks /readyz and a forecast
 ```
 
+## Multi-replica: who downloads the model
+
+Each pod ensures the model is available at startup (entrypoint) or in an
+initContainer. Behaviour depends on the cache volume:
+
+- **`emptyDir` (default)** — per-pod volume. Every replica downloads its own
+  copy; nothing is shared, and each new pod downloads again. Simple, no
+  StorageClass needed.
+- **PVC `ReadWriteMany` (recommended for scaling)** — shared cache. The first pod
+  that starts downloads; the others find the files and skip. Concurrent
+  downloads are serialized by the Hugging Face cache lock. Requires an
+  RWX-capable StorageClass.
+- **PVC `ReadWriteOnce`** — only one pod per node can mount it. Do not scale
+  beyond one replica; use `emptyDir` if you need more.
+- **Pre-seeded / air-gapped** — populate the volume once, then set
+  `modelCache.preload=never`: replicas never download and fail fast (clear error)
+  if the model is missing.
+- **`modelCache.downloadInitContainer.enabled=true`** — the download runs in an
+  initContainer before the app container, which then uses `PRECOG_PRELOAD=never`
+  and only reads from the cache. Useful to keep network I/O out of the app
+  container.
+
+The cache check requires both `config.json` and `model.safetensors` in a
+snapshot directory, so a partially downloaded snapshot is never treated as
+complete.
+
 ## Configuration
 
 All runtime settings use the `PRECOG_` prefix; see

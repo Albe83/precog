@@ -39,6 +39,20 @@ modelCache:
     size: 5Gi
     storageClass: ""
 
+  # Run the download in an initContainer before the app container, so the app
+  # container only reads from the cache (and gets PRECOG_PRELOAD=never).
+  # With a shared cache, concurrent downloads are serialized by the Hugging Face
+  # cache lock: the first pod downloads, the others wait and reuse.
+  downloadInitContainer:
+    enabled: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
 # Runtime configuration, rendered into a ConfigMap.
 config:
   engine: timesfm3
