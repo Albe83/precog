@@ -1,15 +1,25 @@
-Precog API deployed as {{ include "precog.fullname" . }}.
+Precog API deployed as {{ include "precog.fullname" . }} (chart {{ .Chart.Version }}, app {{ .Chart.AppVersion }}).
 
-The image ({{ .Values.image.repository }}:{{ .Values.image.tag }}) is built locally
-and loaded into the cluster; it is not published. The TimesFM-3 weights are baked
-in and covered by the TimesFM Non-Commercial License v1.0.
+Image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+Model weights are downloaded on first start into the cache volume
+({{ .Values.modelCache.mountPath }}, revision {{ .Values.modelCache.revision }});
+they are not baked into the image.
+Cache volume: {{ if eq (include "precog.modelCache.persistenceEnabled" .) "true" }}PersistentVolumeClaim {{ include "precog.modelCache.claimName" . }}{{ else }}emptyDir (ephemeral, re-downloaded on restart){{ end }}.
+
+The first start can take a few minutes (download + model load); readiness is
+gated on /readyz.
 
 Check readiness:
 
-  kubectl get deploy {{ include "precog.fullname" . }} -w
+  kubectl -n {{ .Release.Namespace }} get deploy {{ include "precog.fullname" . }} -w
 
 Port-forward and call the API:
 
-  kubectl port-forward svc/{{ include "precog.fullname" . }} 8000:{{ .Values.service.port }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "precog.fullname" . }} 8000:{{ .Values.service.port }}
+  curl -s localhost:8000/v1/capabilities
   curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d \
     '{"mode":"univariate","horizon":4,"series":[{"id":"a","target":[1,2,3,4,5]}]}'
+{{- if .Values.mcp.enabled }}
+
+MCP server: service {{ include "precog.fullname" . }}-mcp:{{ .Values.mcp.service.port }} (StreamableHTTP at /mcp).
+{{- end }}

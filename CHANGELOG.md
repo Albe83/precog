@@ -96,6 +96,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: `config.existingSecret` / `config.existingSecretKey` to reference an
+  existing Secret for the API key (mutually exclusive with `config.apiKey`).
+- Helm: consistent `modelCache.persistence.existingClaim` handling — it now
+  enables persistence, suppresses the chart-managed PVC and is used by the
+  Deployment and the download Job; `NOTES.txt` matches the real behavior
+  (published images, weights downloaded at runtime).
+- Helm: runtime hardening — `automountServiceAccountToken: false`, a
+  configurable `terminationGracePeriodSeconds` (API default 360s), and a
+  read-only root filesystem with a `/tmp` emptyDir for the download
+  initContainer and Job.
+- Repo: allow the `deps` scope for semantic PR titles (Dependabot).
 - API: `GET /v1/capabilities` advertises the model, limits, modes, quantile
   levels, covariate support and whether auth is required; the Python SDK exposes
   `client.capabilities()`.

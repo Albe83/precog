@@ -1,5 +1,5 @@
 {{- if .Values.modelCache.downloadJob.enabled }}
-{{- if and (not .Values.modelCache.persistence.enabled) (not .Values.modelCache.persistence.existingClaim) }}
+{{- if ne (include "precog.modelCache.persistenceEnabled" .) "true" }}
 {{- fail "modelCache.downloadJob.enabled requires modelCache.persistence.enabled=true or modelCache.persistence.existingClaim" }}
 {{- end }}
 apiVersion: batch/v1
@@ -22,6 +22,7 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: {{ include "precog.serviceAccountName" . }}
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -53,15 +54,20 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: {{ .Values.modelCache.mountPath }}
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.modelCache.downloadJob.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
       volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: {{ .Values.modelCache.persistence.existingClaim | default (include "precog.fullname" .) }}
+            claimName: {{ include "precog.modelCache.claimName" . }}
+        - name: tmp
+          emptyDir: {}
 {{- end }}

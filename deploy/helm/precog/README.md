@@ -107,6 +107,12 @@ Require bearer auth:
 --set config.apiKey=secret
 ```
 
+Use an existing Secret for the API key (no plaintext in values):
+
+```bash
+--set config.existingSecret=precog-api-key --set config.existingSecretKey=api-key
+```
+
 Enable autoscaling and a PodDisruptionBudget:
 
 ```bash
@@ -168,7 +174,7 @@ helm uninstall precog -n precog
 | `modelCache.mountPath` | string | `/opt/precog/hf` | Cache mount path. |
 | `modelCache.hfTokenSecret` | string | `""` | Secret name with key `hf-token` (gated repos). |
 | `modelCache.persistence.enabled` | bool | `false` | Create/use a PVC; `false` uses `emptyDir`. |
-| `modelCache.persistence.existingClaim` | string | `""` | Use an existing PVC instead of creating one. |
+| `modelCache.persistence.existingClaim` | string | `""` | Use an existing PVC instead of creating one (implies persistence enabled). |
 | `modelCache.persistence.accessModes` | list | `[ReadWriteMany]` | PVC access modes. |
 | `modelCache.persistence.size` | string | `5Gi` | PVC size. |
 | `modelCache.persistence.storageClass` | string | `""` | StorageClass (empty = cluster default). |
@@ -191,7 +197,9 @@ helm uninstall precog -n precog
 | `config.maxContext` | `PRECOG_MAX_CONTEXT` | `16384` | Max context length. |
 | `config.maxSeries` | `PRECOG_MAX_SERIES` | `64` | Max series per request. |
 | `config.enableDocs` | `PRECOG_ENABLE_DOCS` | `true` | Serve `/docs` and `/openapi.json`. |
-| `config.apiKey` | `PRECOG_API_KEY` | `""` | If set, creates a Secret and requires bearer auth. |
+| `config.apiKey` | `PRECOG_API_KEY` | `""` | Creates a chart-managed Secret and requires bearer auth. Mutually exclusive with `config.existingSecret`. |
+| `config.existingSecret` | `PRECOG_API_KEY` | `""` | Use an existing Secret for the bearer token (no chart-managed Secret). |
+| `config.existingSecretKey` | — | `api-key` | Key within `config.existingSecret`. |
 
 ### Resources and probes
 
@@ -216,6 +224,7 @@ helm uninstall precog -n precog
 | `podDisruptionBudget.minAvailable` | int | `1` | PDB min available. |
 | `serviceAccount.create` | bool | `true` | Create a ServiceAccount. |
 | `serviceAccount.name` | string | `""` | ServiceAccount name override. |
+| `terminationGracePeriodSeconds` | int | `360` | API pod termination grace period (keep above the request timeout). |
 
 ### MCP server (`mcp`)
 
@@ -230,6 +239,7 @@ helm uninstall precog -n precog
 | `mcp.service.port` | int | `80` | MCP Service port. |
 | `mcp.service.targetPort` | int | `8765` | MCP container port. |
 | `mcp.resources` | map | 50m/128Mi → 500m/512Mi | MCP resources. |
+| `mcp.terminationGracePeriodSeconds` | int | `30` | MCP pod termination grace period. |
 
 ## Notes
 

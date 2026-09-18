@@ -31,6 +31,7 @@ modelCache:
   persistence:
     # false -> emptyDir (ephemeral, re-downloads on restart)
     # true  -> PersistentVolumeClaim (created unless existingClaim is set)
+    # existingClaim alone also enables persistence (no chart-managed PVC).
     enabled: false
     existingClaim: ""
     # ReadWriteMany by default so scaling up reuses the same volume instead of
@@ -80,7 +81,11 @@ config:
   maxSeries: 64
   enableDocs: true
   # Optional bearer token. Leave empty to disable auth.
+  # Set either apiKey (chart-managed Secret) or existingSecret, not both.
   apiKey: ""
+  # Reference an existing Secret instead of putting the token in values.
+  existingSecret: ""
+  existingSecretKey: "api-key"
 
 resources:
   requests:
@@ -145,8 +150,13 @@ mcp:
     limits:
       cpu: 500m
       memory: 512Mi
+  terminationGracePeriodSeconds: 30
 
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# API pod termination grace period; keep it above PRECOG_REQUEST_TIMEOUT_S
+# (config.requestTimeout, default 300s) so in-flight forecasts complete.
+terminationGracePeriodSeconds: 360
