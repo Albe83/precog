@@ -119,6 +119,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- MCP: Prometheus `/metrics` endpoint (`precog_mcp_tool_calls_total`,
+  `precog_mcp_tool_duration_seconds`).
 - API: `options.quantile_spread_scale` (default `1.0`) to widen or narrow the
   prediction intervals around the median; a calibration sweep over the real
   series is committed under `benchmarks/` (the default is well calibrated on

@@ -87,4 +87,10 @@ podman build --format docker -f Dockerfile.mcp -t precog-mcp:local .
 podman run --rm -p 8765:8765 -e PRECOG_API_URL=http://host.docker.internal:8000 precog-mcp:local
 ```
 
+## Metrics
+
+The HTTP transport exposes Prometheus metrics on `/metrics`
+(`precog_mcp_tool_calls_total{tool,status}` and
+`precog_mcp_tool_duration_seconds{tool}`).
+
 The Helm chart can deploy it next to the API with `--set mcp.enabled=true`.
