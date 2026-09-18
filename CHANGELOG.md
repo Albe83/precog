@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.3.0](https://github.com/Albe83/precog/compare/v0.2.0...v0.3.0) (2026-09-18)
+
+
+### Features
+
+* **deploy:** add Grafana dashboard and Prometheus alerts ([7512cd9](https://github.com/Albe83/precog/commit/7512cd96b61bd9c2e9ce3bfe9fbfd9efa8ed82f8))
+* **deploy:** run containers with a read-only root filesystem ([f74868e](https://github.com/Albe83/precog/commit/f74868e4930d8e3c9d76721e6849eeed6587d245))
+
+
+### Bug Fixes
+
+* **ci:** publish images from the release-please workflow ([8e75254](https://github.com/Albe83/precog/commit/8e75254a9776df1a2ac6ee3a6d30eb9d1e60edec))
+* **ci:** use a valid trivy-action tag ([a4628ca](https://github.com/Albe83/precog/commit/a4628ca7406a7a5995a448a3ab43c50514dca3b8))
+
+
+### Documentation
+
+* **repo:** add operations runbook ([663b3c8](https://github.com/Albe83/precog/commit/663b3c833c9c8190f2701a75c927bef96d9a019a))
+* **sdk:** apply ruff formatting to markdown examples ([40aef98](https://github.com/Albe83/precog/commit/40aef98ad2bb9aeabfdf7a5071dc5a39b1e3e834))
+
 ## [0.2.0](https://github.com/Albe83/precog/compare/v0.1.0...v0.2.0) (2026-09-18)
 
 
