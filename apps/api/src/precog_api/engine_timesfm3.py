@@ -7,6 +7,7 @@ during the PREC-1 spike.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
@@ -83,15 +84,21 @@ class TimesFM3Engine:
         return results
 
     def _predict_multivariate(self, request: ForecastRequest) -> list[SeriesForecast]:
-        if any(s.past_covariates or s.future_covariates for s in request.series):
-            raise ValueError("covariates are not supported in multivariate mode yet")
         targets = np.stack([np.asarray(s.target, dtype=np.float32) for s in request.series])
+        kwargs: dict[str, object] = {}
+        past_only = _stacked_covariates(request.past_covariates)
+        past_future = _stacked_covariates(request.future_covariates)
+        if past_only is not None:
+            kwargs["past_only_covariates"] = [past_only]
+        if past_future is not None:
+            kwargs["past_future_covariates"] = [past_future]
         outputs = list(
             self._evaluator.predict_batch(
                 contexts=[targets],
                 horizon=request.horizon,
                 return_quantiles=request.options.return_quantiles,
                 use_symmetric_averaging=request.options.symmetric_averaging,
+                **kwargs,
             )
         )
         output = outputs[0]
@@ -126,3 +133,10 @@ def _covariate_list(request: ForecastRequest, *, future: bool) -> list[np.ndarra
         else:
             covariates.append(None)
     return covariates
+
+
+def _stacked_covariates(covariates: Mapping[str, list[float]]) -> np.ndarray | None:
+    """Stack request-level covariate channels into an ``(n_channels, length)`` array."""
+    if not covariates:
+        return None
+    return np.stack([np.asarray(values, dtype=np.float32) for values in covariates.values()])
