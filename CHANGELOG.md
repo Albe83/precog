@@ -110,6 +110,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- CI: publish multi-arch container images (`linux/amd64`, `linux/arm64`) for the
+  API and MCP server.
 - Observability: optional OpenTelemetry tracing in the API and MCP server
   (`PRECOG_OTEL_ENABLED`, OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT`), installed
   through the `otel` extra.
