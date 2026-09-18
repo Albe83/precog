@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     model_revision: str | None = None
     cache_dir: str | None = None
     local_files_only: bool = False
+    preload: Literal["auto", "always", "never"] = "auto"
+    preload_retries: int = 3
+    model_required: bool = True
+    hf_token: str | None = None
     per_core_batch_size: int = 16
     torch_threads: int = 0
     max_concurrency: int = 1

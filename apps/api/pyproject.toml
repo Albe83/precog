@@ -18,6 +18,7 @@ engine = ["timesfm[torch]>=3.0.2"]
 
 [project.scripts]
 precog-api = "precog_api.__main__:main"
+precog-download-model = "precog_api.warmup:main"
 
 [build-system]
 requires = ["hatchling"]
