@@ -35,7 +35,7 @@ COPY packages/schemas ./packages/schemas
 COPY apps/mcp ./apps/mcp
 
 RUN pip install --upgrade pip \
-    && pip install ./packages/schemas ./apps/mcp
+    && pip install ./packages/schemas "./apps/mcp[otel]"
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 

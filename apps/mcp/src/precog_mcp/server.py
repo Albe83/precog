@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.tracing import setup_tracing
 from precog_schemas import ForecastRequest
 
 TOOL_DESCRIPTION = (
@@ -68,6 +69,8 @@ def create_server(
     client = client or ForecastApiClient(
         settings.api_url, settings.api_key, settings.request_timeout_s
     )
+    if settings.otel_enabled:
+        setup_tracing(settings.otel_service_name)
 
     server: MCPServer = MCPServer(
         name="precog",
