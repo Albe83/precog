@@ -1446,7 +1446,7 @@ wheels = [
 
 [[package]]
 name = "precog"
-version = "0.8.0"
+version = "0.9.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -1532,6 +1532,7 @@ dependencies = [
     { name = "httpx" },
     { name = "mcp" },
     { name = "precog-schemas" },
+    { name = "prometheus-client" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1552,6 +1553,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-httpx", marker = "extra == 'otel'", specifier = ">=0.48b0" },
     { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.27" },
     { name = "precog-schemas", editable = "packages/schemas" },
+    { name = "prometheus-client", specifier = ">=0.20" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },

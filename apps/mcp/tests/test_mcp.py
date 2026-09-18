@@ -9,6 +9,7 @@ import pytest
 from precog_mcp.__main__ import transport_security
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.observability import TOOL_CALLS, metrics_handler, record_tool_call
 from precog_mcp.server import create_server, run_forecast, run_forecast_batch
 
 pytestmark = pytest.mark.unit
@@ -125,3 +126,31 @@ def test_server_with_otel_enabled_registers_tools() -> None:
     server = create_server(Settings(api_url="http://api.test", otel_enabled=True), client=client)
     names = {tool.name for tool in asyncio.run(server.list_tools())}
     assert {"forecast", "forecast_batch"} <= names
+
+
+def test_metrics_handler_returns_prometheus() -> None:
+    response = asyncio.run(metrics_handler(None))  # type: ignore[arg-type]
+    assert response.status_code == 200
+    assert b"precog_mcp_tool_calls_total" in response.body
+
+
+def test_record_tool_call_counts() -> None:
+    before = TOOL_CALLS.labels("forecast", "ok")._value.get()
+    record_tool_call("forecast", {"model": "timesfm-3.0"}, 0.01)
+    after = TOOL_CALLS.labels("forecast", "ok")._value.get()
+    assert after == before + 1
+
+
+def test_http_app_exposes_metrics() -> None:
+    client = _client(lambda request: httpx.Response(200, json={}))
+    server = create_server(Settings(api_url="http://api.test"), client=client)
+    app = server.streamable_http_app()
+
+    async def get_metrics() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+            return await http.get("/metrics")
+
+    response = asyncio.run(get_metrics())
+    assert response.status_code == 200
+    assert "precog_mcp_tool_calls_total" in response.text
