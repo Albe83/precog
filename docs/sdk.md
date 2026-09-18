@@ -44,12 +44,14 @@ response = client.forecast(
 response = client.forecast(
     mode="univariate",
     horizon=3,
-    series=[{
-        "id": "kiosk",
-        "target": [50, 52, 51, 53, 55, 54, 56],
-        "past_covariates": {"footfall": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35, 0.5]},
-        "future_covariates": {"promo": [0, 1, 0, 1, 0, 0, 0, 1, 0, 1]},  # context + horizon
-    }],
+    series=[
+        {
+            "id": "kiosk",
+            "target": [50, 52, 51, 53, 55, 54, 56],
+            "past_covariates": {"footfall": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35, 0.5]},
+            "future_covariates": {"promo": [0, 1, 0, 1, 0, 0, 0, 1, 0, 1]},  # context + horizon
+        }
+    ],
 )
 ```
 
@@ -61,9 +63,9 @@ You can also send an already-built `ForecastRequest` with
 ```python
 client = PrecogClient(
     "http://localhost:8000",
-    api_key="secret",     # sent as Authorization: Bearer
+    api_key="secret",  # sent as Authorization: Bearer
     timeout=300.0,
-    max_retries=2,        # retries 429/5xx and transport errors with backoff
+    max_retries=2,  # retries 429/5xx and transport errors with backoff
     backoff_factor=0.5,
 )
 ```
