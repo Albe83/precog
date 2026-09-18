@@ -1153,7 +1153,7 @@ wheels = [
 
 [[package]]
 name = "precog"
-version = "0.1.0"
+version = "0.7.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -1202,7 +1202,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.4" },
     { name = "timesfm", extras = ["torch"], marker = "extra == 'engine'", specifier = ">=3.0.2" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.53.0" },
 ]
 provides-extras = ["engine"]
 
@@ -1243,7 +1243,7 @@ requires-dist = [
     { name = "precog-schemas", editable = "packages/schemas" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.4" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.53.0" },
 ]
 
 [[package]]
