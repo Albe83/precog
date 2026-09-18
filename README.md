@@ -55,6 +55,8 @@ docs                ADRs, deployment, MCP and SDK guides
 
 CPU container that downloads the weights into a cache volume at startup (not
 baked in), built and run locally. See [docs/deploy.md](docs/deploy.md).
+Weight-free images are also published to GHCR on release:
+`ghcr.io/albe83/precog-api` and `ghcr.io/albe83/precog-mcp`.
 Quick version:
 
 ```bash

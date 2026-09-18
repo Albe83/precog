@@ -11,10 +11,11 @@ Google Research under the **TimesFM Non-Commercial License v1.0**:
 
 - License text: https://huggingface.co/google/timesfm-3.0-pytorch
 - You may not use the weights for commercial or production purposes.
-- The weights are **not** included in this repository and are **not**
-  redistributed by the published Precog image. By default the container
-  downloads them at startup into a cache volume; a baked variant exists only for
-  air-gapped use and must not be published.
+- The weights are **not** included in this repository, and the default Precog
+  image does not contain them either: it downloads them at startup into a cache
+  volume. Publishing that weight-free image therefore does not redistribute the
+  weights. A baked variant (`PRECOG_BAKE_WEIGHTS=true`) embeds them and must not
+  be published.
 
 ## TimesFM source code
 

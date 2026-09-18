@@ -24,7 +24,9 @@ Operational rules (see issue `PREC-9`):
   downloads them at runtime into a mounted volume and caches them there. The
   image therefore does not redistribute the weights.
 - A baked variant is available for air-gapped use (`PRECOG_BAKE_WEIGHTS=true`);
-  such an image embeds the weights and must not be published.
+  such an image embeds the weights and **must never be published**.
+- The default, weight-free images **may be published** (e.g. to GHCR); a CI
+  check verifies no weights are embedded before pushing.
 - `THIRD_PARTY_NOTICES.md` records the model license; it ships with the repo and
   inside the image.
 - This is a non-commercial, hobby project. Users of the weights, however

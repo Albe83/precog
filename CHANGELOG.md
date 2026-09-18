@@ -8,6 +8,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- CI publishes the weight-free images to GHCR on release
+  (`ghcr.io/<owner>/precog-api`, `ghcr.io/<owner>/precog-mcp`), with a check that
+  no model weights are embedded. The baked variant is never published.
 - API: JSON structured logging with a per-request id (`x-request-id` echoed back),
   a Prometheus `/metrics` endpoint (request counts, latency histogram, in-flight
   gauge, forecast series, model load time) and optional in-process rate limiting

@@ -11,6 +11,20 @@ named volume, a bind mount or a Kubernetes PVC.
 > downloaded, the non-commercial restriction applies. See
 > `THIRD_PARTY_NOTICES.md`.
 
+## Published images
+
+Weight-free images are published to GHCR on each release (and via manual
+dispatch):
+
+```bash
+docker pull ghcr.io/albe83/precog-api:latest   # downloads weights at runtime
+docker pull ghcr.io/albe83/precog-mcp:latest   # no weights at all
+```
+
+The CI verifies that no weights are embedded before pushing. **Never** publish
+an image built with `PRECOG_BAKE_WEIGHTS=true`: that variant embeds the
+non-commercial weights and is intended only for local, air-gapped builds.
+
 ## Build the image
 
 ```bash
