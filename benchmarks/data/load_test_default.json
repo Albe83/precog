@@ -1,0 +1,16 @@
+{
+ "api": "http://127.0.0.1:8000",
+ "concurrency": 4,
+ "requests": 16,
+ "elapsed_s": 3.623,
+ "throughput_rps": 4.416,
+ "latency_ms": {
+  "mean": 831.6,
+  "p50": 857.0,
+  "p95": 1092.0,
+  "max": 1092.0
+ },
+ "status_counts": {
+  "200": 16
+ }
+}

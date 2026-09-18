@@ -14,6 +14,8 @@ Grafana / Thanos, compared with trivial baselines.
   + noise).
 - `baseline_cpu.py` — records CPU latency and RSS on synthetic series into
   `data/baseline_cpu.json` (a committed baseline).
+- `load_test.py` — concurrent load test against a running API; writes
+  `data/load_test[_<label>].json`.
 
 ## Run
 
@@ -22,6 +24,8 @@ kubectl -n thanos-system port-forward svc/thanos-query 9091:9090 &
 .venv/bin/python benchmarks/fetch_thanos.py      # refresh data (optional)
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.baseline_cpu
+PRECOG_API_URL=http://127.0.0.1:8000 CONCURRENCY=4 REQUESTS=16 \
+  .venv/bin/python -m benchmarks.load_test
 ```
 
 ## Baselines
