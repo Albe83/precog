@@ -68,6 +68,11 @@ def ensure_model(settings: Settings) -> bool:
     if settings.preload == "never":
         present = is_model_present(cache_dir, settings.model_id)
         logger.info("preload disabled; model present=%s in %s", present, cache_dir)
+        if not present and settings.model_required:
+            raise SystemExit(
+                f"model {settings.model_id} not present in {cache_dir} "
+                "and PRECOG_PRELOAD=never"
+            )
         return present
     if settings.preload == "auto" and is_model_present(cache_dir, settings.model_id):
         logger.info("model already present in %s", cache_dir)

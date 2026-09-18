@@ -63,8 +63,20 @@ def test_preload_never_does_not_download(tmp_path: Path, monkeypatch: pytest.Mon
         raise AssertionError("download should not be called")
 
     monkeypatch.setattr(warmup, "download_model", _boom)
-    settings = Settings(cache_dir=str(tmp_path), preload="never")
+    settings = Settings(cache_dir=str(tmp_path), preload="never", model_required=False)
     assert warmup.ensure_model(settings) is False
+
+
+def test_preload_never_missing_is_fatal_when_required(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(_: Settings) -> None:
+        raise AssertionError("download should not be called")
+
+    monkeypatch.setattr(warmup, "download_model", _boom)
+    settings = Settings(cache_dir=str(tmp_path), preload="never", model_required=True)
+    with pytest.raises(SystemExit):
+        warmup.ensure_model(settings)
 
 
 def test_failure_is_fatal_when_required(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
