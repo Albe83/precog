@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.0](https://github.com/Albe83/precog/compare/v0.3.0...v0.4.0) (2026-09-18)
+
+
+### Features
+
+* **mcp:** make HTTP host validation configurable ([5c3888a](https://github.com/Albe83/precog/commit/5c3888a366d45097a07d1465b383bf40e30540f7))
+
+
+### Documentation
+
+* **mcp:** document PRECOG_MCP_ALLOWED_HOSTS ([50d22f6](https://github.com/Albe83/precog/commit/50d22f68269e19729155e453537e62fbe1fd111c))
+
 ## [0.3.0](https://github.com/Albe83/precog/compare/v0.2.0...v0.3.0) (2026-09-18)
 
 
