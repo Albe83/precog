@@ -5,9 +5,18 @@ name: publish-images
 # Never publish an image built with PRECOG_BAKE_WEIGHTS=true.
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.2.0)
+        required: false
+        type: string
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to publish
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -44,6 +53,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=raw,value=latest
 
       - name: Build and push (no baked weights)
@@ -94,6 +104,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=raw,value=latest
 
       - name: Build and push
