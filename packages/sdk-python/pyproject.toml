@@ -1,0 +1,18 @@
+[project]
+name = "precog-client"
+version = "0.1.0"
+description = "Synchronous Python client for the Precog REST API."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "precog-schemas",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/precog_client"]

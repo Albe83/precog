@@ -11,6 +11,7 @@ resolution-markers = [
 members = [
     "precog",
     "precog-api",
+    "precog-client",
     "precog-mcp",
     "precog-schemas",
 ]
@@ -1202,6 +1203,23 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 provides-extras = ["engine"]
+
+[[package]]
+name = "precog-client"
+version = "0.1.0"
+source = { editable = "packages/sdk-python" }
+dependencies = [
+    { name = "httpx" },
+    { name = "precog-schemas" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "precog-schemas", editable = "packages/schemas" },
+    { name = "pydantic", specifier = ">=2.7" },
+]
 
 [[package]]
 name = "precog-mcp"
