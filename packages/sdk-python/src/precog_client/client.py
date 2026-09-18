@@ -74,14 +74,23 @@ class PrecogClient:
         horizon: int,
         series: Sequence[SeriesLike],
         return_quantiles: bool = True,
+        past_covariates: Mapping[str, Sequence[float]] | None = None,
+        future_covariates: Mapping[str, Sequence[float]] | None = None,
     ) -> ForecastResponse:
-        """Build a request and call ``POST /v1/forecast``."""
+        """Build a request and call ``POST /v1/forecast``.
+
+        ``past_covariates`` / ``future_covariates`` are request-level and are
+        only valid in multivariate mode; in univariate mode attach covariates
+        to each series.
+        """
         try:
             request = ForecastRequest(
                 mode=Mode(mode),
                 horizon=horizon,
                 series=[SeriesInput.model_validate(item) for item in series],
                 options=ForecastOptions(return_quantiles=return_quantiles),
+                past_covariates={k: list(v) for k, v in (past_covariates or {}).items()},
+                future_covariates={k: list(v) for k, v in (future_covariates or {}).items()},
             )
         except (PydanticValidationError, ValueError) as exc:
             raise PrecogValidationError(str(exc)) from exc
