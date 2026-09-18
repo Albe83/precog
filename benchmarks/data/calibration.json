@@ -1,0 +1,31 @@
+{
+ "horizon": 24,
+ "context": 168,
+ "results": [
+  {
+   "scale": 0.8,
+   "coverage_80_mean": 67.3,
+   "pinball_mean": 19082346.4806
+  },
+  {
+   "scale": 1.0,
+   "coverage_80_mean": 78.3,
+   "pinball_mean": 18798890.2591
+  },
+  {
+   "scale": 1.5,
+   "coverage_80_mean": 90.9,
+   "pinball_mean": 19375486.7676
+  },
+  {
+   "scale": 2.0,
+   "coverage_80_mean": 95.8,
+   "pinball_mean": 21075398.5133
+  },
+  {
+   "scale": 3.0,
+   "coverage_80_mean": 99.2,
+   "pinball_mean": 26185815.4256
+  }
+ ]
+}

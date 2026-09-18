@@ -60,6 +60,10 @@ curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d '{
 
 The same contract is available as OpenAPI examples on `/docs`.
 
+`options.quantile_spread_scale` (default `1.0`) scales the quantile spread
+around the median; values above 1 widen the prediction intervals. The default is
+well calibrated on aggregate (see `benchmarks/calibration.py`).
+
 ## Configuration
 
 All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
