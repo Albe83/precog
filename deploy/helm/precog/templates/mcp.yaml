@@ -46,6 +46,10 @@ spec:
                   name: {{ include "precog.fullname" . }}
                   key: api-key
             {{- end }}
+            {{- if .Values.mcp.allowedHosts }}
+            - name: PRECOG_MCP_ALLOWED_HOSTS
+              value: {{ .Values.mcp.allowedHosts | quote }}
+            {{- end }}
           readinessProbe:
             tcpSocket:
               port: http

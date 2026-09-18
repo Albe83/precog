@@ -3,7 +3,8 @@
 replicaCount: 1
 
 image:
-  # Build the image locally and load it into the cluster. Nothing is published.
+  # Published weight-free images: ghcr.io/albe83/precog-api. Or build locally
+  # and load into the cluster (precog-api:local).
   repository: precog-api
   tag: local
   pullPolicy: IfNotPresent
@@ -124,11 +125,16 @@ serviceAccount:
 mcp:
   enabled: false
   image:
+    # Published: ghcr.io/albe83/precog-mcp.
     repository: precog-mcp
     tag: local
     pullPolicy: IfNotPresent
   # Defaults to the API Service in this release when empty.
   apiUrl: ""
+  # Allowed Host headers for the MCP HTTP transport (comma-separated), or "*" to
+  # disable DNS-rebinding protection. Set it when a gateway reaches the service
+  # by DNS name (e.g. "precog-mcp.<ns>.svc:80,mcp-cortana.gewiss.ai").
+  allowedHosts: ""
   service:
     port: 80
     targetPort: 8765
