@@ -156,3 +156,8 @@ def test_capabilities_endpoint() -> None:
     assert body["covariates"] == {"univariate": True, "multivariate": True}
     assert len(body["quantile_levels"]) == 9
     assert body["auth_required"] is False
+
+
+def test_otel_enabled_does_not_break_startup() -> None:
+    with make_client(otel_enabled=True) as client:
+        assert client.get("/healthz").status_code == 200

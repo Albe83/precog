@@ -16,6 +16,11 @@ dependencies = [
 
 [project.optional-dependencies]
 engine = ["timesfm[torch]>=3.0.2"]
+otel = [
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+]
 
 [project.scripts]
 precog-api = "precog_api.__main__:main"
