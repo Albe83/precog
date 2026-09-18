@@ -1,0 +1,18 @@
+services:
+  api:
+    image: precog-api:local
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        # Set CA_CERT behind a TLS-inspecting proxy, e.g. CA_CERT="$(cat corp-root.crt)".
+        CA_CERT: ${CA_CERT:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      PRECOG_ENGINE: timesfm3
+      PRECOG_DEVICE: cpu
+      PRECOG_TORCH_THREADS: "0"
+      PRECOG_MAX_CONCURRENCY: "1"
+      PRECOG_ENABLE_DOCS: "true"
+    restart: unless-stopped
