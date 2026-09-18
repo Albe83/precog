@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.observability import metrics_handler, record_tool_call
 from precog_mcp.tracing import setup_tracing
 from precog_schemas import ForecastRequest
 
@@ -77,6 +79,7 @@ def create_server(
         version="0.1.0",
         instructions="Forecast time series with Google TimesFM-3 via the Precog API.",
     )
+    server.custom_route("/metrics", methods=["GET"], include_in_schema=False)(metrics_handler)
 
     def request_level(payload: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         for key, value in params.items():
@@ -102,17 +105,24 @@ def create_server(
             },
             {"past_covariates": past_covariates, "future_covariates": future_covariates},
         )
-        return await run_forecast(client, payload)
+        started = time.perf_counter()
+        result = await run_forecast(client, payload)
+        record_tool_call("forecast", result, time.perf_counter() - started)
+        return result
 
     @server.tool(name="forecast_batch", description=BATCH_TOOL_DESCRIPTION)
     async def forecast_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
+        started = time.perf_counter()
         if not requests:
-            return {"error": "requests must not be empty"}
-        if len(requests) > settings.mcp_batch_max:
-            return {"error": f"too many requests ({len(requests)} > {settings.mcp_batch_max})"}
-        results = await run_forecast_batch(
-            client, requests, concurrency=settings.mcp_batch_concurrency
-        )
-        return {"count": len(results), "results": results}
+            result: dict[str, Any] = {"error": "requests must not be empty"}
+        elif len(requests) > settings.mcp_batch_max:
+            result = {"error": f"too many requests ({len(requests)} > {settings.mcp_batch_max})"}
+        else:
+            results = await run_forecast_batch(
+                client, requests, concurrency=settings.mcp_batch_concurrency
+            )
+            result = {"count": len(results), "results": results}
+        record_tool_call("forecast_batch", result, time.perf_counter() - started)
+        return result
 
     return server
