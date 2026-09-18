@@ -1,0 +1,43 @@
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Sync workspace
+        run: uv sync --all-packages
+        env:
+          UV_SYSTEM_CERTS: "1"
+
+      # Report only: advisories should not block development, but are visible.
+      - name: pip-audit
+        continue-on-error: true
+        run: uv run --no-sync --with pip-audit pip-audit --skip-editable
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+          artifact-name: precog-sbom
