@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.7.0](https://github.com/Albe83/precog/compare/v0.6.0...v0.7.0) (2026-09-18)
+
+
+### Features
+
+* **api:** add capabilities endpoint and repo governance ([#85](https://github.com/Albe83/precog/issues/85)) ([9755457](https://github.com/Albe83/precog/commit/97554572f833f28dea2afaf1df25109f11642000))
+
+
+### Documentation
+
+* **deploy:** fix chart version examples ([#83](https://github.com/Albe83/precog/issues/83)) ([314df9b](https://github.com/Albe83/precog/commit/314df9b8530a3f3d5b1d49f037ad9e628aab9b12))
+
 ## [0.6.0](https://github.com/Albe83/precog/compare/v0.5.0...v0.6.0) (2026-09-18)
 
 
