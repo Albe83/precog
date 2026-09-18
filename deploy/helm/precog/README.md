@@ -119,6 +119,19 @@ Enable autoscaling and a PodDisruptionBudget:
 --set autoscaling.enabled=true --set podDisruptionBudget.enabled=true
 ```
 
+Autoscaling shares the model cache: with more than one replica use a shared PVC
+(default `ReadWriteMany`) or accept a per-pod download with
+`--set modelCache.allowEphemeralWithHpa=true` (otherwise the chart fails to
+render).
+
+Run the connectivity test and expose metrics:
+
+```bash
+helm test precog -n precog
+--set metrics.serviceMonitor.enabled=true \
+--set metrics.serviceMonitor.labels.release=kube-prometheus-stack
+```
+
 ## Access
 
 ```bash
@@ -178,6 +191,7 @@ helm uninstall precog -n precog
 | `modelCache.persistence.accessModes` | list | `[ReadWriteMany]` | PVC access modes. |
 | `modelCache.persistence.size` | string | `5Gi` | PVC size. |
 | `modelCache.persistence.storageClass` | string | `""` | StorageClass (empty = cluster default). |
+| `modelCache.allowEphemeralWithHpa` | bool | `false` | Allow HPA with `maxReplicas>1` without a shared cache (per-pod download). |
 | `modelCache.downloadInitContainer.enabled` | bool | `false` | Download in an initContainer; app then uses `preload=never`. |
 | `modelCache.downloadInitContainer.resources` | map | 100m/256Mi → 1/1Gi | InitContainer resources. |
 | `modelCache.downloadJob.enabled` | bool | `false` | One-shot Job (post-install/post-upgrade) to pre-populate the PVC. Requires a PVC. |
@@ -240,6 +254,17 @@ helm uninstall precog -n precog
 | `mcp.service.targetPort` | int | `8765` | MCP container port. |
 | `mcp.resources` | map | 50m/128Mi → 500m/512Mi | MCP resources. |
 | `mcp.terminationGracePeriodSeconds` | int | `30` | MCP pod termination grace period. |
+
+### Tests and metrics
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `tests.enabled` | bool | `true` | Render the `helm test` connectivity pod. |
+| `metrics.serviceMonitor.enabled` | bool | `false` | Create a ServiceMonitor for the API `/metrics`. |
+| `metrics.serviceMonitor.interval` | string | `30s` | Scrape interval. |
+| `metrics.serviceMonitor.scrapeTimeout` | string | `10s` | Scrape timeout. |
+| `metrics.serviceMonitor.path` | string | `/metrics` | Metrics path. |
+| `metrics.serviceMonitor.labels` | map | `{}` | Extra labels (e.g. your Prometheus release). |
 
 ## Notes
 
