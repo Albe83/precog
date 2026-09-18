@@ -12,6 +12,9 @@ __pycache__/
 .env
 .env.*
 
+# Helm packaging
+dist/
+
 # Model weights and caches — never commit these (see PREC-9 / THIRD_PARTY_NOTICES)
 models/
 *.safetensors
