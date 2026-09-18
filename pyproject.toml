@@ -33,7 +33,7 @@ src = ["apps", "packages"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["precog_api", "precog_client", "precog_mcp", "precog_schemas"]
+known-first-party = ["benchmarks", "precog_api", "precog_client", "precog_mcp", "precog_schemas"]
 
 [tool.mypy]
 python_version = "3.12"
