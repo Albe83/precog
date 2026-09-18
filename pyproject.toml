@@ -8,11 +8,12 @@ license = { text = "MIT" }
 dependencies = []
 
 [tool.uv.workspace]
-members = ["apps/api", "packages/schemas"]
+members = ["apps/api", "apps/mcp", "packages/schemas"]
 
 [tool.uv.sources]
 precog-schemas = { workspace = true }
 precog-api = { workspace = true }
+precog-mcp = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -31,12 +32,12 @@ src = ["apps", "packages"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["precog_api", "precog_schemas"]
+known-first-party = ["precog_api", "precog_mcp", "precog_schemas"]
 
 [tool.mypy]
 python_version = "3.12"
 files = ["apps", "packages"]
-mypy_path = ["apps/api/src", "packages/schemas/src"]
+mypy_path = ["apps/api/src", "apps/mcp/src", "packages/schemas/src"]
 ignore_missing_imports = true
 warn_unused_ignores = true
 no_implicit_optional = true
