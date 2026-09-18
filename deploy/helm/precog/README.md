@@ -5,7 +5,7 @@ optional MCP server. Model weights are **not baked into the image**: they are
 downloaded at startup into a cache volume (or pre-seeded), so the images are
 weight-free.
 
-- Chart version: `0.2.0` · app version: `0.4.0`
+- Chart version: `0.6.0` · app version: `0.6.0`
 - Images: `ghcr.io/albe83/precog-api`, `ghcr.io/albe83/precog-mcp` (weight-free)
 
 ## Prerequisites
@@ -23,10 +23,10 @@ weight-free.
 helm install precog deploy/helm/precog \
   --namespace precog --create-namespace \
   --set image.repository=ghcr.io/albe83/precog-api \
-  --set image.tag=v0.4.0 \
+  --set image.tag=v0.6.0 \
   --set mcp.enabled=true \
   --set mcp.image.repository=ghcr.io/albe83/precog-mcp \
-  --set mcp.image.tag=v0.4.0 \
+  --set mcp.image.tag=v0.6.0 \
   --set mcp.allowedHosts="precog-mcp.precog.svc:80"
 ```
 
@@ -38,23 +38,23 @@ the listener is reachable only through a trusted gateway plus NetworkPolicy.
 ## Install from the published chart (OCI)
 
 The chart is packaged and published per release, so a deployment can be pinned
-by chart version:
+by chart version (replace `0.6.0` with the release you want to pin):
 
 ```bash
 helm install precog oci://ghcr.io/albe83/precog-charts/precog \
-  --version 0.5.0 --namespace precog --create-namespace \
+  --version 0.6.0 --namespace precog --create-namespace \
   --set image.repository=ghcr.io/albe83/precog-api \
-  --set image.tag=v0.5.0 \
+  --set image.tag=v0.6.0 \
   --set mcp.enabled=true \
   --set mcp.image.repository=ghcr.io/albe83/precog-mcp \
-  --set mcp.image.tag=v0.5.0
+  --set mcp.image.tag=v0.6.0
 ```
 
 The same `.tgz` is attached to each GitHub release:
 
 ```bash
-gh release download v0.5.0 -p 'precog-*.tgz'
-helm install precog precog-0.5.0.tgz
+gh release download v0.6.0 -p 'precog-*.tgz'
+helm install precog precog-0.6.0.tgz
 ```
 
 ## Install with a locally built image
@@ -147,7 +147,7 @@ helm uninstall precog -n precog
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `image.repository` | string | `precog-api` | API image (e.g. `ghcr.io/albe83/precog-api`). |
-| `image.tag` | string | `local` | API image tag (e.g. `v0.4.0`). |
+| `image.tag` | string | `local` | API image tag (e.g. `v0.6.0`). |
 | `image.pullPolicy` | string | `IfNotPresent` | Image pull policy (`Never` for locally loaded images). |
 
 ### Service
