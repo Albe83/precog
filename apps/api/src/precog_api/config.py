@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     device: str = "cpu"
     model_path: str = "/opt/precog/models"
     model_id: str = "google/timesfm-3.0-pytorch"
+    model_revision: str | None = None
+    cache_dir: str | None = None
+    local_files_only: bool = False
     per_core_batch_size: int = 16
     torch_threads: int = 0
     max_concurrency: int = 1

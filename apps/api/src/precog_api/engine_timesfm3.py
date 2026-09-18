@@ -1,30 +1,44 @@
 """TimesFM-3 engine.
 
-This module is imported lazily: the base installation does not depend on torch.
-The mapping follows the published TimesFM-3 API and must be validated against
-the real checkpoint in PREC-1 before it is considered stable.
+Imported lazily so the base installation does not require torch. The mapping
+follows the real TimesFM-3 API (``TimesFM3Evaluator.predict_batch``) validated
+during the PREC-1 spike.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from precog_api.config import Settings
-from precog_schemas import ForecastRequest, SeriesForecast
-
-DEFAULT_QUANTILE_INDEX = 4  # median in the 9-quantile output
+from precog_schemas import ForecastRequest, Mode, SeriesForecast
 
 
 class TimesFM3Engine:
-    """Thin adapter around ``timesfm3.TimesFM3Evaluator``."""
+    """Adapter around ``timesfm3.TimesFM3Evaluator``."""
 
     def __init__(self, settings: Settings) -> None:
+        import torch  # noqa: PLC0415
         from timesfm3 import ModelConfig, TimesFM3Evaluator  # noqa: PLC0415
 
+        if settings.torch_threads > 0:
+            torch.set_num_threads(settings.torch_threads)
+
+        model_dir = Path(settings.model_path)
+        if model_dir.is_dir():
+            checkpoint = settings.model_path
+            local_only = True
+        else:
+            checkpoint = settings.model_id
+            local_only = settings.local_files_only
         config = ModelConfig(
-            checkpoint_path=settings.model_path,
+            checkpoint_path=checkpoint,
             per_core_batch_size=settings.per_core_batch_size,
             device=settings.device,
+            revision=settings.model_revision,
+            cache_dir=settings.cache_dir,
+            local_files_only=local_only,
         )
         self._evaluator = TimesFM3Evaluator(config)
         self._ready = True
@@ -34,20 +48,21 @@ class TimesFM3Engine:
         return self._ready
 
     def predict(self, request: ForecastRequest) -> list[SeriesForecast]:
-        if request.mode.value == "multivariate":
+        if request.mode is Mode.multivariate:
             return self._predict_multivariate(request)
         return self._predict_univariate(request)
 
     def _predict_univariate(self, request: ForecastRequest) -> list[SeriesForecast]:
         contexts = [np.asarray(s.target, dtype=np.float32) for s in request.series]
-        past_only = self._per_series_covariates(request, future=False)
-        past_future = self._per_series_covariates(request, future=True)
+        past_only = _covariate_list(request, future=False)
+        past_future = _covariate_list(request, future=True)
         outputs = list(
             self._evaluator.predict_batch(
                 contexts=contexts,
                 horizon=request.horizon,
                 past_only_covariates=past_only,
                 past_future_covariates=past_future,
+                ts_ids=[s.id for s in request.series],
                 return_quantiles=request.options.return_quantiles,
                 use_symmetric_averaging=request.options.symmetric_averaging,
             )
@@ -60,7 +75,7 @@ class TimesFM3Engine:
                     forecast=np.asarray(output.forecast).reshape(-1).tolist(),
                     quantiles=(
                         np.asarray(output.quantiles).tolist()
-                        if request.options.return_quantiles
+                        if request.options.return_quantiles and output.quantiles is not None
                         else None
                     ),
                 )
@@ -68,66 +83,46 @@ class TimesFM3Engine:
         return results
 
     def _predict_multivariate(self, request: ForecastRequest) -> list[SeriesForecast]:
+        if any(s.past_covariates or s.future_covariates for s in request.series):
+            raise ValueError("covariates are not supported in multivariate mode yet")
         targets = np.stack([np.asarray(s.target, dtype=np.float32) for s in request.series])
-        kwargs: dict[str, object] = {}
-        past_only = self._stacked_covariates(request, future=False)
-        past_future = self._stacked_covariates(request, future=True)
-        if past_only is not None:
-            kwargs["past_only_covariates"] = [past_only]
-        if past_future is not None:
-            kwargs["past_future_covariates"] = [past_future]
         outputs = list(
             self._evaluator.predict_batch(
                 contexts=[targets],
                 horizon=request.horizon,
                 return_quantiles=request.options.return_quantiles,
                 use_symmetric_averaging=request.options.symmetric_averaging,
-                **kwargs,
             )
         )
         output = outputs[0]
-        forecasts = np.asarray(output.forecast)
-        quantiles = np.asarray(output.quantiles) if request.options.return_quantiles else None
+        forecasts = np.atleast_2d(np.asarray(output.forecast))
+        quantiles = (
+            np.asarray(output.quantiles)
+            if request.options.return_quantiles and output.quantiles is not None
+            else None
+        )
         return [
             SeriesForecast(
                 id=series.id,
-                forecast=np.asarray(forecasts[i]).reshape(-1).tolist(),
+                forecast=forecasts[i].reshape(-1).tolist(),
                 quantiles=(quantiles[i].tolist() if quantiles is not None else None),
             )
             for i, series in enumerate(request.series)
         ]
 
-    @staticmethod
-    def _per_series_covariates(
-        request: ForecastRequest, *, future: bool
-    ) -> list[np.ndarray] | None:
-        field = "future_covariates" if future else "past_covariates"
-        if not any(getattr(s, field) for s in request.series):
-            return None
-        covariates: list[np.ndarray] = []
-        for series in request.series:
-            channels = getattr(series, field)
-            if channels:
-                covariates.append(
-                    np.stack([np.asarray(v, dtype=np.float32) for v in channels.values()])
-                )
-            else:
-                covariates.append(np.zeros((0, 0), dtype=np.float32))
-        return covariates
 
-    @staticmethod
-    def _stacked_covariates(request: ForecastRequest, *, future: bool) -> np.ndarray | None:
-        field = "future_covariates" if future else "past_covariates"
-        names = {tuple(getattr(s, field).keys()) for s in request.series}
-        if names == {()}:
-            return None
-        if len(names) != 1:
-            raise ValueError("all series must share the same covariates in multivariate mode")
-        keys = next(iter(names))
-        return np.stack(
-            [
-                np.asarray(getattr(s, field)[k], dtype=np.float32)
-                for s in request.series
-                for k in keys
-            ]
-        )
+def _covariate_list(request: ForecastRequest, *, future: bool) -> list[np.ndarray | None] | None:
+    """Build the per-series covariate list expected by ``predict_batch``."""
+    field = "future_covariates" if future else "past_covariates"
+    if not any(getattr(s, field) for s in request.series):
+        return None
+    covariates: list[np.ndarray | None] = []
+    for series in request.series:
+        channels = getattr(series, field)
+        if channels:
+            covariates.append(
+                np.stack([np.asarray(v, dtype=np.float32) for v in channels.values()])
+            )
+        else:
+            covariates.append(None)
+    return covariates
