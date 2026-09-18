@@ -43,10 +43,11 @@ All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
 
 ```
 apps/api            FastAPI service (engine + HTTP)
+apps/mcp            MCP server exposing the forecast tool
 packages/schemas    Shared Pydantic models
 benchmarks          Backtests against real Grafana/Thanos series
 deploy              Dockerfile, compose, Helm chart, Kustomize
-docs                ADRs and deployment guide
+docs                ADRs, deployment and MCP guides
 ```
 
 ## Deploy
