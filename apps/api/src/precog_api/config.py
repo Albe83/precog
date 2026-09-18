@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     request_timeout_s: float = 300.0
     api_key: str | None = None
     enable_docs: bool = True
+    log_json: bool = True
+    rate_limit_requests: int = 0
+    rate_limit_window_s: int = 60
 
     max_horizon: int = 1024
     max_context: int = 16384
