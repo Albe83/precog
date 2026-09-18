@@ -1,0 +1,58 @@
+name: helm
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.31.4
+
+      - name: helm lint
+        run: helm lint deploy/helm/precog
+
+      - name: helm template (variants)
+        run: |
+          set -euo pipefail
+          chart=deploy/helm/precog
+          helm template precog "$chart" >/dev/null
+          helm template precog "$chart" --set modelCache.persistence.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set modelCache.persistence.enabled=true \
+            --set modelCache.downloadJob.enabled=true >/dev/null
+          helm template precog "$chart" --set modelCache.downloadInitContainer.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set mcp.enabled=true \
+            --set mcp.allowedHosts="precog-mcp.precog.svc:80" >/dev/null
+          helm template precog "$chart" \
+            --set config.apiKey=secret \
+            --set autoscaling.enabled=true \
+            --set podDisruptionBudget.enabled=true >/dev/null
+          helm template precog "$chart" --set modelCache.persistence.existingClaim=my-cache >/dev/null
+
+      - name: guard (downloadJob requires a persistent cache)
+        run: |
+          set -euo pipefail
+          if helm template precog deploy/helm/precog --set modelCache.downloadJob.enabled=true >/dev/null 2>&1; then
+            echo "::error::expected helm template to fail when downloadJob is enabled without persistence"
+            exit 1
+          fi
+
+      - name: kustomize build
+        run: |
+          set -euo pipefail
+          kubectl kustomize deploy/kustomize/base >/dev/null
+          kubectl kustomize deploy/kustomize/overlays/dev >/dev/null
+          kubectl kustomize deploy/kustomize/overlays/prod >/dev/null
