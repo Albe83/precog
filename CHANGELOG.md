@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.0](https://github.com/Albe83/precog/compare/v0.4.0...v0.5.0) (2026-09-18)
+
+
+### Features
+
+* **api:** support covariates in multivariate mode ([a1165fc](https://github.com/Albe83/precog/commit/a1165fc370d8de06be47e44e50deeec3c078a767))
+* **sdk:** pass request-level covariates ([d4af243](https://github.com/Albe83/precog/commit/d4af243fc6089c2946a519a219f551c024cca2a4))
+
+
+### Documentation
+
+* **api:** document multivariate covariates ([0515e59](https://github.com/Albe83/precog/commit/0515e59315137971c667ea7b1df21f020bd1721c))
+* **deploy:** document the Helm chart install and values ([e65fb27](https://github.com/Albe83/precog/commit/e65fb27f203453618091b6ef4273fa0a4c96b591))
+* **repo:** document branch protection ([6538182](https://github.com/Albe83/precog/commit/65381829a27bd67d9168baebf877a63071c3cd76))
+
 ## [0.4.0](https://github.com/Albe83/precog/compare/v0.3.0...v0.4.0) (2026-09-18)
 
 
