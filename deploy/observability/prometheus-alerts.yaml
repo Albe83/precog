@@ -1,0 +1,30 @@
+# Prometheus alerting rules for Precog. Adjust the `job` label to your scrape
+# configuration.
+groups:
+  - name: precog
+    rules:
+      - alert: PrecogHigh5xxRate
+        expr: |
+          sum(rate(precog_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(precog_requests_total[5m])), 1) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Precog API 5xx rate above 5%"
+
+      - alert: PrecogTargetDown
+        expr: up{job="precog"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Precog API target is down"
+
+      - alert: PrecogRequestTimeout
+        expr: increase(precog_requests_total{status="504"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Precog returned a 504 (forecast timeout)"

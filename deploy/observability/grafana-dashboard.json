@@ -1,0 +1,49 @@
+{
+  "title": "Precog API",
+  "uid": "precog-api",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "tags": ["precog"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Requests / s by status",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(precog_requests_total[5m])) by (status)", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Forecast latency p95",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(precog_request_duration_seconds_bucket[5m])) by (le))" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "In-flight requests",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "precog_inflight_requests" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Model load (s)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "precog_model_load_seconds" }]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Series forecast / s",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(precog_forecast_series_total[5m]))" }]
+    }
+  ]
+}
