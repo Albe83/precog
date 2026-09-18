@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     api_key: str | None = None
     enable_docs: bool = True
     log_json: bool = True
+    otel_enabled: bool = False
+    otel_service_name: str = "precog-api"
     rate_limit_requests: int = 0
     rate_limit_window_s: int = 60
 

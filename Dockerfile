@@ -54,7 +54,7 @@ COPY apps/api ./apps/api
 RUN pip install --upgrade pip \
     && pip install --index-url https://download.pytorch.org/whl/cpu torch \
     && pip install "timesfm>=3.0.2" \
-    && pip install ./packages/schemas ./apps/api
+    && pip install ./packages/schemas "./apps/api[otel]"
 
 # httpx (used by huggingface_hub) trusts certifi, not the OS store.
 RUN if [ -n "$CA_CERT" ]; then \

@@ -118,3 +118,10 @@ def test_transport_security_accepts_extra_hosts() -> None:
 def test_transport_security_wildcard_disables_protection() -> None:
     security = transport_security("*")
     assert security.enable_dns_rebinding_protection is False
+
+
+def test_server_with_otel_enabled_registers_tools() -> None:
+    client = _client(lambda request: httpx.Response(200, json={}))
+    server = create_server(Settings(api_url="http://api.test", otel_enabled=True), client=client)
+    names = {tool.name for tool in asyncio.run(server.list_tools())}
+    assert {"forecast", "forecast_batch"} <= names

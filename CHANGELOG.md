@@ -110,6 +110,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Observability: optional OpenTelemetry tracing in the API and MCP server
+  (`PRECOG_OTEL_ENABLED`, OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT`), installed
+  through the `otel` extra.
 - MCP: `forecast_batch` tool (bounded concurrency and batch size via
   `PRECOG_MCP_BATCH_MAX` / `PRECOG_MCP_BATCH_CONCURRENCY`) and request-level
   covariates on the `forecast` tool.

@@ -28,6 +28,7 @@ from precog_api.observability import (
     configure_logging,
     request_id_var,
 )
+from precog_api.tracing import setup_tracing
 from precog_schemas import (
     QUANTILE_LEVELS,
     Capabilities,
@@ -158,6 +159,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         redoc_url=redoc_url,
         openapi_url=openapi_url,
     )
+
+    if settings.otel_enabled:
+        setup_tracing(settings.otel_service_name, fastapi_app=app)
 
     @app.middleware("http")
     async def _observe(request: Request, call_next: Any) -> Response:
