@@ -31,6 +31,23 @@ PRECOG_API_URL=http://localhost:8000 uv run --no-sync precog-mcp
 # MCP endpoint: http://localhost:8765/mcp
 ```
 
+### Host validation (running behind a gateway)
+
+The HTTP transport enables DNS-rebinding protection by default and only accepts
+`localhost` / `127.0.0.1` / `[::1]` hosts. Behind a gateway that reaches the
+server through a Service or DNS name (for example agentgateway in Kubernetes),
+configure the allowed hosts or disable the check:
+
+```bash
+# add specific hosts
+PRECOG_MCP_ALLOWED_HOSTS="precog-mcp.cortana-mcp-servers.svc:8000,mcp-cortana.gewiss.ai"
+
+# or disable it entirely (only where the listener is reachable exclusively
+# through a trusted gateway + NetworkPolicy, since there is no auth on the
+# MCP listener itself)
+PRECOG_MCP_ALLOWED_HOSTS="*"
+```
+
 ## Client configuration
 
 Claude Desktop / Cursor / opencode (stdio):

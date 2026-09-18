@@ -50,6 +50,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- MCP: `PRECOG_MCP_ALLOWED_HOSTS` to configure the HTTP transport Host
+  validation (comma-separated list, or `*` to disable DNS-rebinding protection).
+  Required when the server runs behind a gateway such as agentgateway.
 - CI publishes the weight-free images to GHCR on release
   (`ghcr.io/<owner>/precog-api`, `ghcr.io/<owner>/precog-mcp`), with a check that
   no model weights are embedded. The baked variant is never published.
