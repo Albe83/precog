@@ -7,6 +7,8 @@ services:
       args:
         # Set CA_CERT behind a TLS-inspecting proxy, e.g. CA_CERT="$(cat corp-root.crt)".
         CA_CERT: ${CA_CERT:-}
+        # Set to "true" to bake the weights instead of downloading at runtime.
+        PRECOG_BAKE_WEIGHTS: ${PRECOG_BAKE_WEIGHTS:-false}
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -15,4 +17,14 @@ services:
       PRECOG_TORCH_THREADS: "0"
       PRECOG_MAX_CONCURRENCY: "1"
       PRECOG_ENABLE_DOCS: "true"
+      PRECOG_CACHE_DIR: /opt/precog/hf
+      PRECOG_PRELOAD: auto
+      # PRECOG_HF_TOKEN: ${PRECOG_HF_TOKEN:-}
+    volumes:
+      # The weights are downloaded here on first start and reused afterwards.
+      # Swap for an anonymous volume or a bind mount if you prefer.
+      - precog-models:/opt/precog/hf
     restart: unless-stopped
+
+volumes:
+  precog-models:

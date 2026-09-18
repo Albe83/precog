@@ -16,6 +16,27 @@ service:
   port: 80
   targetPort: 8000
 
+# Model weights are downloaded into a mounted volume at startup (not baked in
+# the image). Defaults are conservative: an ephemeral emptyDir and a single
+# replica, so no StorageClass or RWX support is assumed.
+modelCache:
+  modelId: google/timesfm-3.0-pytorch
+  revision: 43046b85ec22d584a13f8098c2ed39c889e129c2
+  # auto: download if missing; always: force download; never: expect pre-seeded.
+  preload: auto
+  mountPath: /opt/precog/hf
+  # Name of an existing Secret holding the Hugging Face token (key: hf-token).
+  hfTokenSecret: ""
+  persistence:
+    # false -> emptyDir (ephemeral, re-downloads on restart)
+    # true  -> PersistentVolumeClaim (created unless existingClaim is set)
+    enabled: false
+    existingClaim: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+    storageClass: ""
+
 # Runtime configuration, rendered into a ConfigMap.
 config:
   engine: timesfm3
@@ -48,6 +69,11 @@ livenessProbe:
   periodSeconds: 20
   timeoutSeconds: 5
   failureThreshold: 3
+
+# Allows a cold start (download + model load) before liveness kicks in.
+startupProbe:
+  periodSeconds: 10
+  failureThreshold: 60
 
 autoscaling:
   enabled: false

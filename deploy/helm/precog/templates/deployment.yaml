@@ -39,14 +39,35 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "precog.fullname" . }}
-          {{- if .Values.config.apiKey }}
           env:
+            - name: PRECOG_MODEL_ID
+              value: {{ .Values.modelCache.modelId | quote }}
+            - name: PRECOG_MODEL_REVISION
+              value: {{ .Values.modelCache.revision | quote }}
+            - name: PRECOG_CACHE_DIR
+              value: {{ .Values.modelCache.mountPath | quote }}
+            - name: PRECOG_PRELOAD
+              value: {{ .Values.modelCache.preload | quote }}
+            {{- if .Values.config.apiKey }}
             - name: PRECOG_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "precog.fullname" . }}
                   key: api-key
-          {{- end }}
+            {{- end }}
+            {{- if .Values.modelCache.hfTokenSecret }}
+            - name: PRECOG_HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modelCache.hfTokenSecret }}
+                  key: hf-token
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /readyz
@@ -65,6 +86,17 @@ spec:
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: model-cache
+              mountPath: {{ .Values.modelCache.mountPath }}
+      volumes:
+        - name: model-cache
+          {{- if .Values.modelCache.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.modelCache.existingClaim | default (include "precog.fullname" .) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

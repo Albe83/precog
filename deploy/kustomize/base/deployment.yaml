@@ -54,3 +54,11 @@ spec:
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: model-cache
+              mountPath: /opt/precog/hf
+      volumes:
+        # Ephemeral by default; replace with a PVC or hostPath if you want the
+        # downloaded weights to persist.
+        - name: model-cache
+          emptyDir: {}
