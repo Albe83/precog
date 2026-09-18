@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.8.0](https://github.com/Albe83/precog/compare/v0.7.1...v0.8.0) (2026-09-18)
+
+
+### Features
+
+* **deploy:** add chart validation, tests and metrics ([#98](https://github.com/Albe83/precog/issues/98)) ([f0baa57](https://github.com/Albe83/precog/commit/f0baa573cb4aaa94407c41546412bb773851adec))
+
 ## [0.7.1](https://github.com/Albe83/precog/compare/v0.7.0...v0.7.1) (2026-09-18)
 
 
