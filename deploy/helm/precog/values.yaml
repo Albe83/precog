@@ -53,6 +53,21 @@ modelCache:
         cpu: "1"
         memory: 1Gi
 
+  # Pre-populate the cache with a one-shot Job (post-install/post-upgrade hook).
+  # Requires a persistent cache: set persistence.enabled=true or existingClaim.
+  # Handy to download once before scaling, especially with preload=never.
+  downloadJob:
+    enabled: false
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 600
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
 # Runtime configuration, rendered into a ConfigMap.
 config:
   engine: timesfm3

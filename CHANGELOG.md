@@ -19,6 +19,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   (`modelCache.downloadInitContainer.enabled`); the app container then uses
   `PRECOG_PRELOAD=never`. `PRECOG_PRELOAD=never` now fails fast when the model
   is absent.
+- Helm: optional one-shot model-download `Job`
+  (`modelCache.downloadJob.enabled`, post-install/post-upgrade hook) to
+  pre-populate a persistent cache; requires a PVC.
 - Compose: named `precog-models` volume mounted at `/opt/precog/hf`.
 
 ## [0.1.0] - 2026-09-18

@@ -86,7 +86,8 @@ replica in that case):
 
 Use `modelCache.persistence.existingClaim` to bring your own claim. Other useful
 values: `modelCache.preload` (`auto`/`always`/`never`), `modelCache.revision`,
-`modelCache.hfTokenSecret` (Secret name; token in key `hf-token`).
+`modelCache.hfTokenSecret` (Secret name; token in key `hf-token`),
+`modelCache.downloadInitContainer.enabled` and `modelCache.downloadJob.enabled`.
 
 ```bash
 kubectl port-forward svc/precog 8000:80
@@ -131,6 +132,25 @@ initContainer. Behaviour depends on the cache volume:
   initContainer before the app container, which then uses `PRECOG_PRELOAD=never`
   and only reads from the cache. Useful to keep network I/O out of the app
   container.
+- **`modelCache.downloadJob.enabled=true`** — a one-shot Job (post-install /
+  post-upgrade hook) pre-populates the cache. It requires a persistent cache
+  (`persistence.enabled=true` or `persistence.existingClaim`). To download once
+  and never from the pods, install with the Job and `replicaCount=0`, wait for
+  it, then scale up with `preload=never`:
+
+  ```bash
+  helm install precog deploy/helm/precog \
+    --set modelCache.persistence.enabled=true \
+    --set modelCache.downloadJob.enabled=true \
+    --set replicaCount=0
+  kubectl wait --for=condition=complete job/precog-model-download --timeout=10m
+  helm upgrade precog deploy/helm/precog \
+    --set modelCache.persistence.enabled=true \
+    --set modelCache.preload=never --set replicaCount=2
+  ```
+
+  If you leave `preload=auto`, the Job only warms the cache and the pods remain
+  self-healing (they download if needed, serialized by the Hugging Face lock).
 
 The cache check requires both `config.json` and `model.safetensors` in a
 snapshot directory, so a partially downloaded snapshot is never treated as

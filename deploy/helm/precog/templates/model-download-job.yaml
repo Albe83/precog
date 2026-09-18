@@ -1,0 +1,67 @@
+{{- if .Values.modelCache.downloadJob.enabled }}
+{{- if and (not .Values.modelCache.persistence.enabled) (not .Values.modelCache.persistence.existingClaim) }}
+{{- fail "modelCache.downloadJob.enabled requires modelCache.persistence.enabled=true or modelCache.persistence.existingClaim" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "precog.fullname" . }}-model-download
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.modelCache.downloadJob.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.modelCache.downloadJob.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "precog.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "precog.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: download-model
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["precog-download-model"]
+          env:
+            - name: PRECOG_MODEL_ID
+              value: {{ .Values.modelCache.modelId | quote }}
+            - name: PRECOG_MODEL_REVISION
+              value: {{ .Values.modelCache.revision | quote }}
+            - name: PRECOG_CACHE_DIR
+              value: {{ .Values.modelCache.mountPath | quote }}
+            - name: PRECOG_PRELOAD
+              value: always
+            {{- if .Values.modelCache.hfTokenSecret }}
+            - name: PRECOG_HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modelCache.hfTokenSecret }}
+                  key: hf-token
+            {{- end }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: {{ .Values.modelCache.mountPath }}
+          resources:
+            {{- toYaml .Values.modelCache.downloadJob.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ .Values.modelCache.persistence.existingClaim | default (include "precog.fullname" .) }}
+{{- end }}
