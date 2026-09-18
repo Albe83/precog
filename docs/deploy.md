@@ -63,6 +63,14 @@ kubectl apply -k deploy/kustomize/overlays/dev
 kubectl apply -k deploy/kustomize/overlays/prod
 ```
 
+## In-cluster smoke test
+
+After loading the image into the cluster, verify the chart end-to-end:
+
+```bash
+CLEANUP=false deploy/smoke-test.sh      # installs, checks /readyz and a forecast
+```
+
 ## Configuration
 
 All runtime settings use the `PRECOG_` prefix; see
