@@ -125,3 +125,20 @@ class ForecastResponse(BaseModel):
     quantile_levels: list[float]
     results: list[SeriesForecast]
     usage: Usage
+
+
+class Capabilities(BaseModel):
+    """Model and API contract advertised to clients."""
+
+    model: str
+    model_id: str
+    revision: str | None = None
+    engine: str
+    device: str
+    modes: list[Mode]
+    max_horizon: int
+    max_context: int
+    max_series: int
+    quantile_levels: list[float]
+    covariates: dict[str, bool]
+    auth_required: bool

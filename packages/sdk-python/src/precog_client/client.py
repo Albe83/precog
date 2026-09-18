@@ -16,7 +16,14 @@ from precog_client.errors import (
     PrecogTimeoutError,
     PrecogValidationError,
 )
-from precog_schemas import ForecastOptions, ForecastRequest, ForecastResponse, Mode, SeriesInput
+from precog_schemas import (
+    Capabilities,
+    ForecastOptions,
+    ForecastRequest,
+    ForecastResponse,
+    Mode,
+    SeriesInput,
+)
 
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 SeriesLike = SeriesInput | Mapping[str, Any]
@@ -101,6 +108,21 @@ class PrecogClient:
         response = self._post(request.model_dump(mode="json"))
         try:
             return ForecastResponse.model_validate(response.json())
+        except PydanticValidationError as exc:
+            raise PrecogError(f"unexpected response from API: {exc}") from exc
+
+    def capabilities(self) -> Capabilities:
+        """Return the model and API capabilities advertised by the server."""
+        try:
+            response = self._client.get("/v1/capabilities")
+        except httpx.TimeoutException as exc:
+            raise PrecogTimeoutError(f"request timed out: {exc}") from exc
+        except httpx.TransportError as exc:
+            raise PrecogConnectionError(f"cannot reach {self._base_url}: {exc}") from exc
+        if response.status_code >= 400:
+            raise _api_error(response)
+        try:
+            return Capabilities.model_validate(response.json())
         except PydanticValidationError as exc:
             raise PrecogError(f"unexpected response from API: {exc}") from exc
 

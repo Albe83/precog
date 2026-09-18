@@ -113,3 +113,30 @@ def test_timeout_is_mapped() -> None:
     with _client(handler) as client:
         with pytest.raises(PrecogTimeoutError):
             client.forecast(horizon=1, series=[{"id": "a", "target": [1.0]}])
+
+
+def test_capabilities_parses_response() -> None:
+    payload = {
+        "model": "timesfm-3.0",
+        "model_id": "google/timesfm-3.0-pytorch",
+        "revision": "abc123",
+        "engine": "timesfm3",
+        "device": "cpu",
+        "modes": ["univariate", "multivariate"],
+        "max_horizon": 1024,
+        "max_context": 16384,
+        "max_series": 64,
+        "quantile_levels": [0.1, 0.5, 0.9],
+        "covariates": {"univariate": True, "multivariate": True},
+        "auth_required": False,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/capabilities"
+        return httpx.Response(200, json=payload)
+
+    with _client(handler) as client:
+        capabilities = client.capabilities()
+
+    assert capabilities.max_horizon == 1024
+    assert capabilities.modes[1].value == "multivariate"

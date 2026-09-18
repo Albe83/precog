@@ -28,7 +28,14 @@ from precog_api.observability import (
     configure_logging,
     request_id_var,
 )
-from precog_schemas import ForecastRequest, ForecastResponse, Usage
+from precog_schemas import (
+    QUANTILE_LEVELS,
+    Capabilities,
+    ForecastRequest,
+    ForecastResponse,
+    Mode,
+    Usage,
+)
 
 logger = logging.getLogger("precog.api")
 
@@ -242,6 +249,23 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:
         return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    @app.get("/v1/capabilities", response_model=Capabilities, tags=["forecast"])
+    async def capabilities() -> Capabilities:
+        return Capabilities(
+            model=settings.model_name,
+            model_id=settings.model_id,
+            revision=settings.model_revision,
+            engine=settings.engine,
+            device=settings.device,
+            modes=[Mode.univariate, Mode.multivariate],
+            max_horizon=settings.max_horizon,
+            max_context=settings.max_context,
+            max_series=settings.max_series,
+            quantile_levels=list(QUANTILE_LEVELS),
+            covariates={"univariate": True, "multivariate": True},
+            auth_required=bool(settings.api_key),
+        )
 
     @app.post(
         "/v1/forecast",

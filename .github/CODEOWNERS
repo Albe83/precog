@@ -1,0 +1,9 @@
+# Default owner for everything in the repository.
+* @Albe83
+
+# Areas (kept explicit for reviewers).
+/apps/api/ @Albe83
+/apps/mcp/ @Albe83
+/packages/ @Albe83
+/deploy/ @Albe83
+/.github/ @Albe83

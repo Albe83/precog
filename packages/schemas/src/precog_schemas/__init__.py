@@ -2,6 +2,7 @@
 
 from precog_schemas.models import (
     QUANTILE_LEVELS,
+    Capabilities,
     ForecastOptions,
     ForecastRequest,
     ForecastResponse,
@@ -13,6 +14,7 @@ from precog_schemas.models import (
 
 __all__ = [
     "QUANTILE_LEVELS",
+    "Capabilities",
     "ForecastOptions",
     "ForecastRequest",
     "ForecastResponse",

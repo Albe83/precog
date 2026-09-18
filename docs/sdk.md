@@ -20,6 +20,9 @@ release policy, see `THIRD_PARTY_NOTICES.md`).
 from precog_client import PrecogClient
 
 with PrecogClient("http://localhost:8000") as client:
+    capabilities = client.capabilities()
+    print(capabilities.max_horizon, capabilities.modes)
+
     response = client.forecast(
         mode="univariate",
         horizon=4,

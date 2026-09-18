@@ -141,3 +141,18 @@ def test_multivariate_covariate_length_validated() -> None:
         response = client.post("/v1/forecast", json=payload)
         assert response.status_code == 422
         assert "context + horizon" in response.json()["detail"]
+
+
+def test_capabilities_endpoint() -> None:
+    with make_client(max_horizon=10, max_context=99, max_series=3) as client:
+        response = client.get("/v1/capabilities")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["max_horizon"] == 10
+    assert body["max_context"] == 99
+    assert body["max_series"] == 3
+    assert body["modes"] == ["univariate", "multivariate"]
+    assert body["covariates"] == {"univariate": True, "multivariate": True}
+    assert len(body["quantile_levels"]) == 9
+    assert body["auth_required"] is False

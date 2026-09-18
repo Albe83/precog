@@ -84,6 +84,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- API: `GET /v1/capabilities` advertises the model, limits, modes, quantile
+  levels, covariate support and whether auth is required; the Python SDK exposes
+  `client.capabilities()`.
+- Repo: `CODEOWNERS`, `SECURITY.md` and Dependabot (uv + GitHub Actions).
 - API: multivariate forecasting with covariates. In `mode=multivariate` the
   target variates share one joint context and covariates are declared once at
   request level (`past_covariates`/`future_covariates`); per-series covariates
