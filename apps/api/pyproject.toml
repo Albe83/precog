@@ -1,0 +1,27 @@
+[project]
+name = "precog-api"
+version = "0.1.0"
+description = "Precog REST API exposing TimesFM-3 forecasts."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "numpy>=1.26",
+    "precog-schemas",
+]
+
+[project.optional-dependencies]
+engine = ["timesfm[torch]>=3.0.2"]
+
+[project.scripts]
+precog-api = "precog_api.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/precog_api"]

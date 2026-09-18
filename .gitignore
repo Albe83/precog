@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+
+# Model weights and caches — never commit these (see PREC-9 / THIRD_PARTY_NOTICES)
+models/
+*.safetensors
+*.gguf
+.cache/huggingface/
