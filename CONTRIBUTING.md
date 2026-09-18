@@ -39,6 +39,20 @@ uv run pytest
 
 `--system-certs` is only needed behind a TLS-inspecting proxy.
 
+## Hooks and automation
+
+Install the git hooks (needs `pre-commit`):
+
+```bash
+uv tool install pre-commit        # or: pipx install pre-commit
+pre-commit install --hook-type pre-commit --hook-type commit-msg
+```
+
+- `pre-commit` runs ruff (lint + format) and validates the commit message.
+- PR titles are checked in CI (`pr-title` workflow) with the same types/scopes.
+- `release-please` opens a release PR from `main`; merging it tags the source and
+  updates `CHANGELOG.md`. No artifacts (no weights, no images) are published.
+
 ## Definition of Done
 
 - Acceptance criteria of the issue satisfied.
