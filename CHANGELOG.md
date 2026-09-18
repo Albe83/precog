@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.2.0](https://github.com/Albe83/precog/compare/v0.1.0...v0.2.0) (2026-09-18)
+
+
+### Features
+
+* **api:** add observability, rate limiting and OpenAPI examples ([270022a](https://github.com/Albe83/precog/commit/270022a395c60b3bb67298e33c304b06a0c0c4b7))
+* **api:** fail fast when preload is never and the model is absent ([05e3661](https://github.com/Albe83/precog/commit/05e366195a9c9ccca78aa1b1077df08a4897e363))
+* **api:** provision model weights at startup into a cache volume ([544c59c](https://github.com/Albe83/precog/commit/544c59cc224c9970aacef04a26f42b2da6ca7719))
+* **deploy:** add optional model download initContainer for scaling ([9ce5d0e](https://github.com/Albe83/precog/commit/9ce5d0e04628f7a0c9e6009a982fb81b620798ab))
+* **deploy:** add optional one-shot model download Job ([9780037](https://github.com/Albe83/precog/commit/9780037d310c65b82562127dc7b24596db8ab5ab))
+* **deploy:** download weights into a volume instead of baking them ([0468f32](https://github.com/Albe83/precog/commit/0468f3278d000e7e0c95855c529d3c59cf8d33ac))
+* **sdk:** add synchronous typed Python client ([3e034a4](https://github.com/Albe83/precog/commit/3e034a4bad1c7b0c5320c3fdf4f64a2a03489af9))
+
+
+### Documentation
+
+* **api:** document observability and rate limiting ([fca7b95](https://github.com/Albe83/precog/commit/fca7b9579cc9cc8ed3e328bce596f330f1d70203))
+* **deploy:** document published images and licensing guard ([5429434](https://github.com/Albe83/precog/commit/54294344a9fcc781f78cab766206a3a70acaaf07))
+* **deploy:** document volume-based model provisioning ([6e99a70](https://github.com/Albe83/precog/commit/6e99a70574f9d3f492ed79a62fa108b6e13d0cf8))
+* **repo:** document hooks and release automation ([74ecd57](https://github.com/Albe83/precog/commit/74ecd57a1e19492716a1f80c10577add6146836c))
+* **sdk:** add Python SDK guide ([0ba7bea](https://github.com/Albe83/precog/commit/0ba7beae3c42f154104901d17994ac84326934e7))
+
 ## [Unreleased]
 
 ### Added
