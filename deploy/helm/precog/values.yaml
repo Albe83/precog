@@ -63,6 +63,26 @@ serviceAccount:
   create: true
   name: ""
 
+# Optional MCP server deployment (talks to the API over HTTP, no model weights).
+mcp:
+  enabled: false
+  image:
+    repository: precog-mcp
+    tag: local
+    pullPolicy: IfNotPresent
+  # Defaults to the API Service in this release when empty.
+  apiUrl: ""
+  service:
+    port: 80
+    targetPort: 8765
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []

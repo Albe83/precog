@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1
+
+# Precog MCP server image. Contains no model weights: it talks to the API over
+# HTTP. Build locally; nothing is published.
+#
+#   podman build --format docker -f Dockerfile.mcp -t precog-mcp:local .
+#   # behind TLS inspection:
+#   podman build --format docker --build-arg CA_CERT="$(cat corp-root.crt)" \
+#     -f Dockerfile.mcp -t precog-mcp:local .
+
+ARG PYTHON_VERSION=3.12
+
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ARG CA_CERT=""
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_CERT=/etc/ssl/certs/ca-certificates.crt
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN if [ -n "$CA_CERT" ]; then \
+        printf '%s\n' "$CA_CERT" > /usr/local/share/ca-certificates/corp-root.crt \
+        && update-ca-certificates; \
+    fi
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /src
+COPY packages/schemas ./packages/schemas
+COPY apps/mcp ./apps/mcp
+
+RUN pip install --upgrade pip \
+    && pip install ./packages/schemas ./apps/mcp
+
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+RUN useradd --create-home --uid 10001 precog
+
+COPY --from=builder /opt/venv /opt/venv
+COPY THIRD_PARTY_NOTICES.md LICENSE /opt/precog/
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PRECOG_MCP_TRANSPORT=http \
+    PRECOG_MCP_HOST=0.0.0.0 \
+    PRECOG_MCP_PORT=8765 \
+    PRECOG_API_URL=http://localhost:8000
+
+USER 10001
+EXPOSE 8765
+
+CMD ["precog-mcp"]
