@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.10.0](https://github.com/Albe83/precog/compare/v0.9.0...v0.10.0) (2026-09-18)
+
+
+### Features
+
+* **mcp:** expose Prometheus metrics ([#105](https://github.com/Albe83/precog/issues/105)) ([266d97f](https://github.com/Albe83/precog/commit/266d97f716713cc5892bc768a5651750e367e981))
+* **sdk:** add precog CLI ([#109](https://github.com/Albe83/precog/issues/109)) ([bffa8c8](https://github.com/Albe83/precog/commit/bffa8c82d294ab85de60a5df06556f689429f3f2))
+
+
+### Documentation
+
+* **api:** add API versioning and deprecation ADR ([#108](https://github.com/Albe83/precog/issues/108)) ([a763c06](https://github.com/Albe83/precog/commit/a763c0621c743741e0e2e501febbaa741074974b))
+
 ## [0.9.0](https://github.com/Albe83/precog/compare/v0.8.0...v0.9.0) (2026-09-18)
 
 
