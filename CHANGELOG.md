@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.7.1](https://github.com/Albe83/precog/compare/v0.7.0...v0.7.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **deploy:** reconcile existingClaim, harden runtime and support existing secret ([#96](https://github.com/Albe83/precog/issues/96)) ([1dec8d7](https://github.com/Albe83/precog/commit/1dec8d73ecd76b725661954dad5cb4568a491345))
+
 ## [0.7.0](https://github.com/Albe83/precog/compare/v0.6.0...v0.7.0) (2026-09-18)
 
 
