@@ -41,6 +41,10 @@ modelCache:
     size: 5Gi
     storageClass: ""
 
+  # Autoscaling above one replica shares the cache: with the default ephemeral
+  # emptyDir each pod downloads its own copy. Set to true to accept that.
+  allowEphemeralWithHpa: false
+
   # Run the download in an initContainer before the app container, so the app
   # container only reads from the cache (and gets PRECOG_PRELOAD=never).
   # With a shared cache, concurrent downloads are serialized by the Hugging Face
@@ -160,3 +164,17 @@ affinity: {}
 # API pod termination grace period; keep it above PRECOG_REQUEST_TIMEOUT_S
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.
 terminationGracePeriodSeconds: 360
+
+# Chart connectivity test (`helm test precog`).
+tests:
+  enabled: true
+
+# Prometheus scraping for the API /metrics endpoint.
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    # Extra labels for the ServiceMonitor (e.g. your Prometheus release label).
+    labels: {}

@@ -103,6 +103,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: `values.schema.json` (strict key/type validation, catches typos) and a
+  `.helmignore`.
+- Helm: `helm test` connectivity pod (`tests.enabled`) and an optional
+  `ServiceMonitor` for the API `/metrics` (`metrics.serviceMonitor.*`).
+- Helm: guard that HPA with `maxReplicas>1` uses a shared model cache, with the
+  `modelCache.allowEphemeralWithHpa` escape hatch.
 - Helm: `config.existingSecret` / `config.existingSecretKey` to reference an
   existing Secret for the API key (mutually exclusive with `config.apiKey`).
 - Helm: consistent `modelCache.persistence.existingClaim` handling — it now
