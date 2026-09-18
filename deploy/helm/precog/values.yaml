@@ -1,0 +1,69 @@
+# Default values for the precog chart.
+
+replicaCount: 1
+
+image:
+  # Build the image locally and load it into the cluster. Nothing is published.
+  repository: precog-api
+  tag: local
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+# Runtime configuration, rendered into a ConfigMap.
+config:
+  engine: timesfm3
+  device: cpu
+  torchThreads: 0
+  maxConcurrency: 1
+  maxHorizon: 1024
+  maxContext: 16384
+  maxSeries: 64
+  enableDocs: true
+  # Optional bearer token. Leave empty to disable auth.
+  apiKey: ""
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 3Gi
+  limits:
+    cpu: "4"
+    memory: 8Gi
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

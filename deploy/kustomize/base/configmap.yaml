@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: precog
+data:
+  PRECOG_ENGINE: timesfm3
+  PRECOG_DEVICE: cpu
+  PRECOG_TORCH_THREADS: "0"
+  PRECOG_MAX_CONCURRENCY: "1"
+  PRECOG_MAX_HORIZON: "1024"
+  PRECOG_MAX_CONTEXT: "16384"
+  PRECOG_MAX_SERIES: "64"
+  PRECOG_ENABLE_DOCS: "true"

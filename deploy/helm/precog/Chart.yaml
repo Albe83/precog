@@ -1,0 +1,6 @@
+apiVersion: v2
+name: precog
+description: TimesFM-3 zero-shot forecasting REST API (CPU, weights baked in).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "precog.fullname" . }}
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+data:
+  PRECOG_ENGINE: {{ .Values.config.engine | quote }}
+  PRECOG_DEVICE: {{ .Values.config.device | quote }}
+  PRECOG_TORCH_THREADS: {{ .Values.config.torchThreads | quote }}
+  PRECOG_MAX_CONCURRENCY: {{ .Values.config.maxConcurrency | quote }}
+  PRECOG_MAX_HORIZON: {{ .Values.config.maxHorizon | quote }}
+  PRECOG_MAX_CONTEXT: {{ .Values.config.maxContext | quote }}
+  PRECOG_MAX_SERIES: {{ .Values.config.maxSeries | quote }}
+  PRECOG_ENABLE_DOCS: {{ .Values.config.enableDocs | quote }}

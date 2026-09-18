@@ -1,0 +1,15 @@
+Precog API deployed as {{ include "precog.fullname" . }}.
+
+The image ({{ .Values.image.repository }}:{{ .Values.image.tag }}) is built locally
+and loaded into the cluster; it is not published. The TimesFM-3 weights are baked
+in and covered by the TimesFM Non-Commercial License v1.0.
+
+Check readiness:
+
+  kubectl get deploy {{ include "precog.fullname" . }} -w
+
+Port-forward and call the API:
+
+  kubectl port-forward svc/{{ include "precog.fullname" . }} 8000:{{ .Values.service.port }}
+  curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d \
+    '{"mode":"univariate","horizon":4,"series":[{"id":"a","target":[1,2,3,4,5]}]}'
