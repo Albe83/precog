@@ -46,7 +46,7 @@ jobs:
           echo "image size: $((bytes / 1024 / 1024)) MiB"
 
       - name: Scan image (report only)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: precog-api:ci
           format: table
