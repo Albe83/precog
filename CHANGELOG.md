@@ -110,6 +110,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- MCP: `forecast_batch` tool (bounded concurrency and batch size via
+  `PRECOG_MCP_BATCH_MAX` / `PRECOG_MCP_BATCH_CONCURRENCY`) and request-level
+  covariates on the `forecast` tool.
 - Helm: `values.schema.json` (strict key/type validation, catches typos) and a
   `.helmignore`.
 - Helm: `helm test` connectivity pod (`tests.enabled`) and an optional
