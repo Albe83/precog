@@ -110,6 +110,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- API: `options.quantile_spread_scale` (default `1.0`) to widen or narrow the
+  prediction intervals around the median; a calibration sweep over the real
+  series is committed under `benchmarks/` (the default is well calibrated on
+  aggregate: ~78% coverage at the 80% level).
 - CI: publish multi-arch container images (`linux/amd64`, `linux/arm64`) for the
   API and MCP server.
 - Observability: optional OpenTelemetry tracing in the API and MCP server
