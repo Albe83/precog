@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The API image no longer bakes the TimesFM-3 weights by default. The entrypoint
+  downloads the pinned revision into `PRECOG_CACHE_DIR` at startup when missing
+  and reuses the cache volume (ephemeral directory, named volume, bind mount or
+  PVC). Set `PRECOG_BAKE_WEIGHTS=true` for an air-gapped image.
+- Helm: new `modelCache` values (ephemeral `emptyDir` by default, optional PVC,
+  `preload`, `revision`, `hfTokenSecret`) and a `startupProbe` for cold starts.
+- Compose: named `precog-models` volume mounted at `/opt/precog/hf`.
+
 ## [0.1.0] - 2026-09-18
 
 First source release. TimesFM-3 zero-shot forecasting exposed as a REST API,

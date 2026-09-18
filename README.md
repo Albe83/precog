@@ -53,8 +53,9 @@ docs                ADRs, deployment, MCP and SDK guides
 
 ## Deploy
 
-CPU container with the weights baked in, built and run locally (never
-published). See [docs/deploy.md](docs/deploy.md). Quick version:
+CPU container that downloads the weights into a cache volume at startup (not
+baked in), built and run locally. See [docs/deploy.md](docs/deploy.md).
+Quick version:
 
 ```bash
 podman build --format docker -t precog-api:local .
