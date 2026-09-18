@@ -88,8 +88,15 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   validation (comma-separated list, or `*` to disable DNS-rebinding protection).
   Required when the server runs behind a gateway such as agentgateway.
 - CI publishes the weight-free images to GHCR on release
-  (`ghcr.io/<owner>/precog-api`, `ghcr.io/<owner>/precog-mcp`), with a check that
-  no model weights are embedded. The baked variant is never published.
+  (`ghcr.io/<owner>/precog-api`, `ghcr.io/<owner>/precog-mcp`, `ghcr.io/<owner>/precog-charts`),
+  with a check that no model weights are embedded. The baked variant is never
+  published.
+- Helm: the chart is packaged per release and published as an OCI chart
+  (`oci://ghcr.io/albe83/precog-charts/precog`, pin with `--version`) and
+  attached to the GitHub release as `precog-<version>.tgz`. `release-please`
+  keeps `Chart.yaml` `version`/`appVersion` in lockstep with the release.
+- Helm: pods roll on ConfigMap changes (`checksum/config`) and on API key
+  changes (`checksum/secret`).
 - API: JSON structured logging with a per-request id (`x-request-id` echoed back),
   a Prometheus `/metrics` endpoint (request counts, latency histogram, in-flight
   gauge, forecast series, model load time) and optional in-process rate limiting

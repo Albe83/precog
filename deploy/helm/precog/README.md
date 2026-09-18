@@ -35,6 +35,28 @@ header (DNS-rebinding protection); behind a gateway or a Service DNS name the
 default localhost-only allowlist rejects it. Use `"*"` to disable the check when
 the listener is reachable only through a trusted gateway plus NetworkPolicy.
 
+## Install from the published chart (OCI)
+
+The chart is packaged and published per release, so a deployment can be pinned
+by chart version:
+
+```bash
+helm install precog oci://ghcr.io/albe83/precog-charts/precog \
+  --version 0.5.0 --namespace precog --create-namespace \
+  --set image.repository=ghcr.io/albe83/precog-api \
+  --set image.tag=v0.5.0 \
+  --set mcp.enabled=true \
+  --set mcp.image.repository=ghcr.io/albe83/precog-mcp \
+  --set mcp.image.tag=v0.5.0
+```
+
+The same `.tgz` is attached to each GitHub release:
+
+```bash
+gh release download v0.5.0 -p 'precog-*.tgz'
+helm install precog precog-0.5.0.tgz
+```
+
 ## Install with a locally built image
 
 ```bash

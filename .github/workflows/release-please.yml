@@ -32,3 +32,14 @@ jobs:
     uses: ./.github/workflows/publish-images.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
+
+  # Package and publish the Helm chart (OCI + release asset) for the release.
+  chart:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/publish-chart.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}

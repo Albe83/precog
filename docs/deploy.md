@@ -21,6 +21,11 @@ docker pull ghcr.io/albe83/precog-api:latest   # downloads weights at runtime
 docker pull ghcr.io/albe83/precog-mcp:latest   # no weights at all
 ```
 
+The Helm chart is published per release as an OCI chart
+(`oci://ghcr.io/albe83/precog-charts/precog`, pin with `--version`) and as a
+`.tgz` asset on the GitHub release. See
+[`deploy/helm/precog/README.md`](../deploy/helm/precog/README.md).
+
 The CI verifies that no weights are embedded before pushing. **Never** publish
 an image built with `PRECOG_BAKE_WEIGHTS=true`: that variant embeds the
 non-commercial weights and is intended only for local, air-gapped builds.
