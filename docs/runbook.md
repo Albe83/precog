@@ -67,6 +67,10 @@ load.
 - Structured JSON logs with `x-request-id` (echo the header to correlate).
 - `GET /metrics` (Prometheus): request counts, latency histogram, in-flight
   gauge, forecast series, model load time.
+- Optional OpenTelemetry tracing (`PRECOG_OTEL_ENABLED=true`; OTLP endpoint via
+  `OTEL_EXPORTER_OTLP_ENDPOINT`, service name via `PRECOG_OTEL_SERVICE_NAME`).
+  The API instruments FastAPI and the MCP server instruments its outbound HTTPX
+  calls, so a client request is traced across both.
 - `deploy/observability/` has a sample Grafana dashboard and Prometheus alerts.
 
 ## TLS / corporate CA
