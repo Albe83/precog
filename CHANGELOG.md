@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.6.0](https://github.com/Albe83/precog/compare/v0.5.0...v0.6.0) (2026-09-18)
+
+
+### Features
+
+* **deploy:** publish the Helm chart per release ([#81](https://github.com/Albe83/precog/issues/81)) ([8b9ff08](https://github.com/Albe83/precog/commit/8b9ff0821944bfdb75019b2d6480a2c3067a15e2))
+
 ## [0.5.0](https://github.com/Albe83/precog/compare/v0.4.0...v0.5.0) (2026-09-18)
 
 

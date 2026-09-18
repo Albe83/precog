@@ -1,6 +1,8 @@
 apiVersion: v2
 name: precog
-description: TimesFM-3 zero-shot forecasting REST API (CPU). Weights are downloaded at runtime into a cache volume.
+description: >-
+  TimesFM-3 zero-shot forecasting REST API (CPU). Weights are downloaded at
+  runtime into a cache volume.
 type: application
-version: 0.5.0
-appVersion: "0.5.0"
+version: 0.6.0
+appVersion: 0.6.0
