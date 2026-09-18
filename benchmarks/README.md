@@ -16,6 +16,8 @@ Grafana / Thanos, compared with trivial baselines.
   `data/baseline_cpu.json` (a committed baseline).
 - `load_test.py` — concurrent load test against a running API; writes
   `data/load_test[_<label>].json`.
+- `calibration.py` — quantile-spread calibration sweep on the real series
+  (coverage vs pinball loss); writes `data/calibration.json`.
 
 ## Run
 
@@ -26,6 +28,7 @@ PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.baseline_cpu
 PRECOG_API_URL=http://127.0.0.1:8000 CONCURRENCY=4 REQUESTS=16 \
   .venv/bin/python -m benchmarks.load_test
+PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.calibration
 ```
 
 ## Baselines
