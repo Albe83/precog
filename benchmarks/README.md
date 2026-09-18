@@ -10,6 +10,10 @@ Grafana / Thanos, compared with trivial baselines.
 - `evaluate.py` — multi-series, multi-horizon, multi-window backtest with MAE,
   sMAPE, MASE and 80% interval coverage.
 - `backtest_grafana.py` — single-metric sanity backtest on `data/grafana_sample.json`.
+- `synthetic.py` — deterministic synthetic series generator (trend + seasonality
+  + noise).
+- `baseline_cpu.py` — records CPU latency and RSS on synthetic series into
+  `data/baseline_cpu.json` (a committed baseline).
 
 ## Run
 
@@ -17,6 +21,7 @@ Grafana / Thanos, compared with trivial baselines.
 kubectl -n thanos-system port-forward svc/thanos-query 9091:9090 &
 .venv/bin/python benchmarks/fetch_thanos.py      # refresh data (optional)
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py
+PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.baseline_cpu
 ```
 
 ## Baselines

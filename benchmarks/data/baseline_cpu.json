@@ -1,0 +1,43 @@
+{
+ "engine": "timesfm3",
+ "device": "cpu",
+ "generator": {
+  "period": 24,
+  "seed": "context"
+ },
+ "repeats": 3,
+ "runs": [
+  {
+   "context": 128,
+   "horizon": 24,
+   "latency_ms_median": 203.91,
+   "latency_ms_min": 193.2,
+   "latency_ms_max": 222.32,
+   "rss_mb": 2797.7
+  },
+  {
+   "context": 128,
+   "horizon": 96,
+   "latency_ms_median": 210.11,
+   "latency_ms_min": 192.46,
+   "latency_ms_max": 211.78,
+   "rss_mb": 2797.7
+  },
+  {
+   "context": 256,
+   "horizon": 24,
+   "latency_ms_median": 209.19,
+   "latency_ms_min": 203.81,
+   "latency_ms_max": 222.65,
+   "rss_mb": 2797.7
+  },
+  {
+   "context": 256,
+   "horizon": 96,
+   "latency_ms_median": 205.6,
+   "latency_ms_min": 202.83,
+   "latency_ms_max": 209.56,
+   "rss_mb": 2797.7
+  }
+ ]
+}
