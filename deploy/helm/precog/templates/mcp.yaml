@@ -19,6 +19,8 @@ spec:
         app.kubernetes.io/component: mcp
     spec:
       serviceAccountName: {{ include "precog.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.mcp.terminationGracePeriodSeconds }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -39,12 +41,12 @@ spec:
               value: {{ .Values.mcp.service.targetPort | quote }}
             - name: PRECOG_API_URL
               value: {{ default (printf "http://%s:%v" (include "precog.fullname" .) .Values.service.port) .Values.mcp.apiUrl | quote }}
-            {{- if .Values.config.apiKey }}
+            {{- if or .Values.config.apiKey .Values.config.existingSecret }}
             - name: PRECOG_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "precog.fullname" . }}
-                  key: api-key
+                  name: {{ include "precog.apiKeySecretName" . }}
+                  key: {{ include "precog.apiKeySecretKey" . }}
             {{- end }}
             {{- if .Values.mcp.allowedHosts }}
             - name: PRECOG_MCP_ALLOWED_HOSTS

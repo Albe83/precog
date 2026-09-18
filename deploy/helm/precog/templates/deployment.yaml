@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if .Values.config.apiKey }}
+        {{- if and .Values.config.apiKey (not .Values.config.existingSecret) }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -25,6 +25,8 @@ spec:
         {{- include "precog.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "precog.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -57,10 +59,13 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: {{ .Values.modelCache.mountPath }}
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.modelCache.downloadInitContainer.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -84,12 +89,12 @@ spec:
               value: {{ .Values.modelCache.mountPath | quote }}
             - name: PRECOG_PRELOAD
               value: {{ ternary "never" .Values.modelCache.preload .Values.modelCache.downloadInitContainer.enabled | quote }}
-            {{- if .Values.config.apiKey }}
+            {{- if or .Values.config.apiKey .Values.config.existingSecret }}
             - name: PRECOG_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "precog.fullname" . }}
-                  key: api-key
+                  name: {{ include "precog.apiKeySecretName" . }}
+                  key: {{ include "precog.apiKeySecretKey" . }}
             {{- end }}
             {{- if .Values.modelCache.hfTokenSecret }}
             - name: PRECOG_HF_TOKEN
@@ -129,9 +134,9 @@ spec:
               mountPath: /tmp
       volumes:
         - name: model-cache
-          {{- if .Values.modelCache.persistence.enabled }}
+          {{- if eq (include "precog.modelCache.persistenceEnabled" .) "true" }}
           persistentVolumeClaim:
-            claimName: {{ .Values.modelCache.persistence.existingClaim | default (include "precog.fullname" .) }}
+            claimName: {{ include "precog.modelCache.claimName" . }}
           {{- else }}
           emptyDir: {}
           {{- end }}

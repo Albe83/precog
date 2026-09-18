@@ -1,4 +1,4 @@
-{{- if and .Values.modelCache.persistence.enabled (not .Values.modelCache.existingClaim) }}
+{{- if and .Values.modelCache.persistence.enabled (not .Values.modelCache.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

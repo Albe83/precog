@@ -34,3 +34,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
+
+{{/* Persistence is on when a PVC is requested or an existing claim is named. */}}
+{{- define "precog.modelCache.persistenceEnabled" -}}
+{{- if or .Values.modelCache.persistence.enabled .Values.modelCache.persistence.existingClaim -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "precog.modelCache.claimName" -}}
+{{- default (include "precog.fullname" .) .Values.modelCache.persistence.existingClaim -}}
+{{- end -}}
+
+{{- define "precog.apiKeySecretName" -}}
+{{- if .Values.config.existingSecret -}}
+{{- .Values.config.existingSecret -}}
+{{- else -}}
+{{- include "precog.fullname" . -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "precog.apiKeySecretKey" -}}
+{{- default "api-key" .Values.config.existingSecretKey -}}
+{{- end -}}
