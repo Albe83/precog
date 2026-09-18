@@ -119,6 +119,7 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- SDK: `precog` CLI (`precog forecast --file|--csv`, `precog capabilities`).
 - Docs: ADR for API versioning and deprecation (`docs/adr/0004-api-versioning.md`).
 - CI: published images carry SBOM and provenance attestations
   (`docker buildx imagetools inspect` / `docker buildx attest`).

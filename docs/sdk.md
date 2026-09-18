@@ -85,6 +85,20 @@ client = PrecogClient(
 )
 ```
 
+## CLI
+
+The package installs a `precog` command:
+
+```bash
+precog --url http://localhost:8000 capabilities
+precog --url http://localhost:8000 forecast --file request.json
+precog --url http://localhost:8000 forecast --csv series.csv --horizon 24 --id sales
+```
+
+`--file` takes a full `ForecastRequest` JSON payload; `--csv` takes a
+single-column CSV (header optional) for a univariate series. Output is the API
+response as JSON.
+
 ## Errors
 
 All exceptions derive from `PrecogError`:
