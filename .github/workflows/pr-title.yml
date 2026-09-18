@@ -31,6 +31,7 @@ jobs:
             mcp
             sdk
             deploy
+            deps
             ci
             docs
             repo
