@@ -3,23 +3,7 @@ name: build
 on:
   push:
     branches: [main]
-    paths:
-      - "Dockerfile"
-      - ".dockerignore"
-      - "apps/**"
-      - "packages/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/build.yml"
   pull_request:
-    paths:
-      - "Dockerfile"
-      - ".dockerignore"
-      - "apps/**"
-      - "packages/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/build.yml"
   workflow_dispatch:
 
 jobs:
