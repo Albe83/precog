@@ -107,6 +107,10 @@ values: `modelCache.preload` (`auto`/`always`/`never`), `modelCache.revision`,
 kubectl port-forward svc/precog 8000:80
 ```
 
+Full value reference and more install scenarios (published images, persistence,
+download Job/initContainer, MCP, autoscaling):
+[`deploy/helm/precog/README.md`](../deploy/helm/precog/README.md).
+
 ## Kubernetes (Kustomize)
 
 ```bash
