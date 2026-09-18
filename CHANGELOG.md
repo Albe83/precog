@@ -6,6 +6,16 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+### Added
+
+- API: JSON structured logging with a per-request id (`x-request-id` echoed back),
+  a Prometheus `/metrics` endpoint (request counts, latency histogram, in-flight
+  gauge, forecast series, model load time) and optional in-process rate limiting
+  (`PRECOG_RATE_LIMIT_REQUESTS`/`PRECOG_RATE_LIMIT_WINDOW_S`, 429 with
+  `Retry-After`).
+- API: richer OpenAPI with request examples (univariate, covariates,
+  multivariate), response descriptions and documented error responses.
+
 ### Changed
 
 - The API image no longer bakes the TimesFM-3 weights by default. The entrypoint

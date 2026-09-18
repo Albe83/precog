@@ -169,5 +169,8 @@ All runtime settings use the `PRECOG_` prefix; see
 | `PRECOG_PRELOAD` | `auto` / `always` / `never` | `auto` |
 | `PRECOG_HF_TOKEN` | Token for gated repos | unset |
 | `PRECOG_LOCAL_FILES_ONLY` | Avoid network lookups | `true` in the image |
+| `PRECOG_RATE_LIMIT_REQUESTS` | Requests per window per client (0 = off) | `0` |
+| `PRECOG_RATE_LIMIT_WINDOW_S` | Rate-limit window in seconds | `60` |
+| `PRECOG_LOG_JSON` | JSON logs | `true` |
 
 An optional `PRECOG_API_KEY` enables bearer auth.
