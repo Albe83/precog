@@ -5,6 +5,7 @@ import asyncio
 import httpx
 import pytest
 
+from precog_mcp.__main__ import transport_security
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.server import create_server, run_forecast
@@ -72,3 +73,20 @@ def test_server_registers_forecast_tool() -> None:
     tools = asyncio.run(server.list_tools())
     names = {tool.name for tool in tools}
     assert "forecast" in names
+
+
+def test_transport_security_defaults_to_localhost() -> None:
+    security = transport_security("")
+    assert security.enable_dns_rebinding_protection is True
+    assert "localhost:*" in security.allowed_hosts
+
+
+def test_transport_security_accepts_extra_hosts() -> None:
+    security = transport_security("precog-mcp.cortana-mcp-servers.svc:8000")
+    assert security.enable_dns_rebinding_protection is True
+    assert "precog-mcp.cortana-mcp-servers.svc:8000" in security.allowed_hosts
+
+
+def test_transport_security_wildcard_disables_protection() -> None:
+    security = transport_security("*")
+    assert security.enable_dns_rebinding_protection is False

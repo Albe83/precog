@@ -19,3 +19,7 @@ class Settings(BaseSettings):
     mcp_transport: Literal["stdio", "http"] = "stdio"
     mcp_host: str = "0.0.0.0"
     mcp_port: int = 8765
+    # Comma-separated allowed Host headers for the HTTP transport. Use "*" to
+    # disable DNS-rebinding protection entirely (needed behind a gateway such as
+    # agentgateway, where the Host is the Service/DNS name, not localhost).
+    mcp_allowed_hosts: str = ""
