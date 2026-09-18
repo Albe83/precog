@@ -98,8 +98,10 @@ update).
 `release-please` opens a release PR from `main`; merging it publishes a GitHub
 Release and triggers `publish-images` (via the release-please workflow, because
 releases created with `GITHUB_TOKEN` do not fire the `release` event). Images
-are pushed to GHCR with semver, `sha-<short>` and `latest` tags. The baked
-variant (`PRECOG_BAKE_WEIGHTS=true`) must never be published.
+are pushed to GHCR with semver, `sha-<short>` and `latest` tags. The Helm chart
+is packaged and published to `oci://ghcr.io/albe83/precog-charts/precog`
+(pinnable with `--version`) and attached to the release as `precog-<version>.tgz`.
+The baked variant (`PRECOG_BAKE_WEIGHTS=true`) must never be published.
 
 ## License
 
