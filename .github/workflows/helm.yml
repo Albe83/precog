@@ -39,14 +39,33 @@ jobs:
           helm template precog "$chart" \
             --set config.apiKey=secret \
             --set autoscaling.enabled=true \
+            --set modelCache.persistence.enabled=true \
             --set podDisruptionBudget.enabled=true >/dev/null
           helm template precog "$chart" --set modelCache.persistence.existingClaim=my-cache >/dev/null
+          helm template precog "$chart" --set metrics.serviceMonitor.enabled=true >/dev/null
+          helm template precog "$chart" --set config.existingSecret=my-secret >/dev/null
 
       - name: guard (downloadJob requires a persistent cache)
         run: |
           set -euo pipefail
           if helm template precog deploy/helm/precog --set modelCache.downloadJob.enabled=true >/dev/null 2>&1; then
             echo "::error::expected helm template to fail when downloadJob is enabled without persistence"
+            exit 1
+          fi
+
+      - name: guard (HPA requires a shared cache)
+        run: |
+          set -euo pipefail
+          if helm template precog deploy/helm/precog --set autoscaling.enabled=true >/dev/null 2>&1; then
+            echo "::error::expected helm template to fail for HPA without a shared model cache"
+            exit 1
+          fi
+
+      - name: guard (apiKey and existingSecret are mutually exclusive)
+        run: |
+          set -euo pipefail
+          if helm template precog deploy/helm/precog --set config.apiKey=x --set config.existingSecret=y >/dev/null 2>&1; then
+            echo "::error::expected helm template to fail when both apiKey and existingSecret are set"
             exit 1
           fi
 
