@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import httpx
 import pytest
@@ -8,7 +9,7 @@ import pytest
 from precog_mcp.__main__ import transport_security
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
-from precog_mcp.server import create_server, run_forecast
+from precog_mcp.server import create_server, run_forecast, run_forecast_batch
 
 pytestmark = pytest.mark.unit
 
@@ -72,7 +73,34 @@ def test_server_registers_forecast_tool() -> None:
     server = create_server(Settings(api_url="http://api.test"), client=client)
     tools = asyncio.run(server.list_tools())
     names = {tool.name for tool in tools}
-    assert "forecast" in names
+    assert {"forecast", "forecast_batch"} <= names
+
+
+def test_forecast_batch_preserves_order() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"model": "timesfm-3.0"})
+
+    payloads: list[dict[str, Any]] = [
+        {"mode": "univariate", "horizon": 1, "series": [{"id": "a", "target": [1.0]}]},
+        {"mode": "univariate", "horizon": 1, "series": [{"id": "b", "target": [2.0]}]},
+        {"mode": "univariate", "horizon": 1, "series": [{"id": "c", "target": [3.0]}]},
+    ]
+    results = asyncio.run(run_forecast_batch(_client(handler), payloads, concurrency=2))
+    assert len(results) == 3
+    assert all(r["model"] == "timesfm-3.0" for r in results)
+
+
+def test_forecast_batch_maps_per_item_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"model": "timesfm-3.0"})
+
+    payloads: list[dict[str, Any]] = [
+        {"mode": "univariate", "horizon": 1, "series": [{"id": "a", "target": [1.0]}]},
+        {"mode": "univariate", "series": []},  # invalid
+    ]
+    results = asyncio.run(run_forecast_batch(_client(handler), payloads))
+    assert results[0]["model"] == "timesfm-3.0"
+    assert results[1]["error"] == "invalid forecast request"
 
 
 def test_transport_security_defaults_to_localhost() -> None:

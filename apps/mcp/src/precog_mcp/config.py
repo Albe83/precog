@@ -23,3 +23,5 @@ class Settings(BaseSettings):
     # disable DNS-rebinding protection entirely (needed behind a gateway such as
     # agentgateway, where the Host is the Service/DNS name, not localhost).
     mcp_allowed_hosts: str = ""
+    mcp_batch_max: int = 32
+    mcp_batch_concurrency: int = 4
