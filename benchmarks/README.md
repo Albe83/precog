@@ -8,7 +8,8 @@ Grafana / Thanos, compared with trivial baselines.
 - `fetch_thanos.py` — collects the sample series into `data/complex_series.json`
   (needs a port-forward to `thanos-system/thanos-query`).
 - `evaluate.py` — multi-series, multi-horizon, multi-window backtest with MAE,
-  sMAPE, MASE and 80% interval coverage.
+  sMAPE, MASE, pinball loss and 80% interval coverage. Writes a versioned
+  aggregate baseline (`data/benchmark_baseline.json`) and can gate on it.
 - `backtest_grafana.py` — single-metric sanity backtest on `data/grafana_sample.json`.
 - `synthetic.py` — deterministic synthetic series generator (trend + seasonality
   + noise).
@@ -25,6 +26,8 @@ Grafana / Thanos, compared with trivial baselines.
 kubectl -n thanos-system port-forward svc/thanos-query 9091:9090 &
 .venv/bin/python benchmarks/fetch_thanos.py      # refresh data (optional)
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py
+PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py --write-baseline
+PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python benchmarks/evaluate.py --check
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.baseline_cpu
 PRECOG_API_URL=http://127.0.0.1:8000 CONCURRENCY=4 REQUESTS=16 \
   .venv/bin/python -m benchmarks.load_test
