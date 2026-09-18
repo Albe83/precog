@@ -115,21 +115,25 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
           volumeMounts:
             - name: model-cache
               mountPath: {{ .Values.modelCache.mountPath }}
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: model-cache
           {{- if .Values.modelCache.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.modelCache.existingClaim | default (include "precog.fullname" .) }}
+            claimName: {{ .Values.modelCache.persistence.existingClaim | default (include "precog.fullname" .) }}
           {{- else }}
           emptyDir: {}
           {{- end }}
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

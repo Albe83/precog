@@ -110,6 +110,7 @@ RUN if [ "$PRECOG_BAKE_WEIGHTS" = "true" ]; then \
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PRECOG_ENGINE=timesfm3 \
     PRECOG_DEVICE=cpu \
     PRECOG_MODEL_ID=${PRECOG_MODEL_ID} \

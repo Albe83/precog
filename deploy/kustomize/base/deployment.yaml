@@ -51,14 +51,19 @@ spec:
               memory: 8Gi
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
           volumeMounts:
             - name: model-cache
               mountPath: /opt/precog/hf
+            - name: tmp
+              mountPath: /tmp
       volumes:
         # Ephemeral by default; replace with a PVC or hostPath if you want the
         # downloaded weights to persist.
         - name: model-cache
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
