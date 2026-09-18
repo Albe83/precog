@@ -119,6 +119,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- CI: published images carry SBOM and provenance attestations
+  (`docker buildx imagetools inspect` / `docker buildx attest`).
 - MCP: Prometheus `/metrics` endpoint (`precog_mcp_tool_calls_total`,
   `precog_mcp_tool_duration_seconds`).
 - API: `options.quantile_spread_scale` (default `1.0`) to widen or narrow the

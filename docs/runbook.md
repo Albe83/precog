@@ -103,7 +103,8 @@ update).
 Release and triggers `publish-images` (via the release-please workflow, because
 releases created with `GITHUB_TOKEN` do not fire the `release` event). Images
 are pushed to GHCR with semver, `sha-<short>` and `latest` tags (multi-arch:
-`linux/amd64` and `linux/arm64`). The Helm chart
+`linux/amd64` and `linux/arm64`) plus SBOM/provenance attestations
+(`docker buildx imagetools inspect ghcr.io/albe83/precog-api:vX.Y.Z`). The Helm chart
 is packaged and published to `oci://ghcr.io/albe83/precog-charts/precog`
 (pinnable with `--version`) and attached to the release as `precog-<version>.tgz`.
 The baked variant (`PRECOG_BAKE_WEIGHTS=true`) must never be published.
