@@ -44,8 +44,21 @@ All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
 ```
 apps/api            FastAPI service (engine + HTTP)
 packages/schemas    Shared Pydantic models
-docs/adr            Architecture decision records
+benchmarks          Backtests against real Grafana/Thanos series
+deploy              Dockerfile, compose, Helm chart, Kustomize
+docs                ADRs and deployment guide
 ```
+
+## Deploy
+
+CPU container with the weights baked in, built and run locally (never
+published). See [docs/deploy.md](docs/deploy.md). Quick version:
+
+```bash
+podman build --format docker -t precog-api:local .
+docker compose -f deploy/compose/docker-compose.yml up
+```
+
 
 ## Development env note (TLS inspection)
 
