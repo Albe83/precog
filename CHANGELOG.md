@@ -132,6 +132,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Model cache: revisions can coexist in the HF cache layout; setting
+  `PRECOG_PRUNE_OLD_REVISIONS` (Helm `modelCache.pruneOldRevisions`) removes
+  snapshots other than the pinned revision and their unreferenced blobs.
 - API: reject non-finite inputs (`NaN`/`Inf`) with a clear validation error;
   `options.interpolate_missing` fills interior gaps by linear interpolation.
 - Benchmarks: aggregate baseline (MAE, MASE, coverage, pinball) committed to

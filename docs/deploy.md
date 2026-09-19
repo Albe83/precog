@@ -179,6 +179,11 @@ The cache check requires both `config.json` and `model.safetensors` in a
 snapshot directory, so a partially downloaded snapshot is never treated as
 complete.
 
+Multiple revisions can coexist in the cache (Hugging Face keeps one snapshot per
+revision). Set `PRECOG_PRUNE_OLD_REVISIONS=true` (Helm:
+`modelCache.pruneOldRevisions=true`) to remove snapshots other than the pinned
+`PRECOG_MODEL_REVISION` after download, freeing disk when rotating revisions.
+
 ## Configuration
 
 All runtime settings use the `PRECOG_` prefix; see
