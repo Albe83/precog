@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 import httpx
@@ -290,6 +291,35 @@ def test_json_non_problem_body_is_not_exposed() -> None:
     with pytest.raises(ForecastAdapterError) as info:
         asyncio.run(execute_forecast(_client(handler), _request()))
     assert "internal.example" not in info.value.message
+
+
+@pytest.mark.parametrize("body", [[], "boom", 7, None, {"title": ["nope"], "detail": {"a": 1}}])
+def test_malformed_problem_json_is_sanitized(body: Any) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            500,
+            text=json.dumps(body),
+            headers={"content-type": "application/problem+json"},
+        )
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.INFERENCE_FAILED
+    assert info.value.message == "Precog API error (HTTP 500)"
+
+
+def test_valid_problem_json_preserves_title_and_detail() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422,
+            text=json.dumps({"title": "Unprocessable Entity", "detail": "too long"}),
+            headers={"content-type": "application/problem+json"},
+        )
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.FORECAST_REJECTED
+    assert info.value.message == "Unprocessable Entity: too long"
 
 
 def test_map_api_error_auth_is_unavailable() -> None:

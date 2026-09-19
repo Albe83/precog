@@ -282,7 +282,7 @@ Precog-level constraint for the caller.
 | `backtest.interval_coverage` | boolean | Outer-interval coverage can be returned |
 | `limits.max_horizon` | integer or `null` | Maximum `horizon` in steps |
 | `limits.max_context_length` | integer or `null` | Maximum accepted context length per series |
-| `limits.quantile_levels` | array of numbers | Supported quantile levels |
+| `limits.quantile_levels` | array of numbers | Quantile levels accepted by the MCP semantic contract |
 
 Only limits that are meaningful to the caller as Precog-level constraints are
 advertised. Combinatory execution limits (targets plus covariates per forward
@@ -293,12 +293,14 @@ adapted.
 ### Limits availability
 
 The semantic capability flags and the supported quantile levels are part of the
-MCP contract and are always present. `max_horizon` and `max_context_length` are
-derived from the execution API's effective limits. If the API cannot be
-consulted, the resource still succeeds and returns `null` for those two fields:
-the caller then discovers limits through stable tool errors (`FORECAST_REJECTED`)
-instead of assuming a value. The resource never returns raw upstream error
-bodies or infrastructure details.
+MCP contract and are always present; they are never overridden by the execution
+API, so the resource cannot advertise quantiles that `forecast`/`backtest`
+would reject. `max_horizon` and `max_context_length` are derived from the
+execution API's effective limits. If the API cannot be consulted, the resource
+still succeeds and returns `null` for those two fields: the caller then
+discovers limits through stable tool errors (`FORECAST_REJECTED`) instead of
+assuming a value. The resource never returns raw upstream error bodies or
+infrastructure details.
 
 ### Example response
 

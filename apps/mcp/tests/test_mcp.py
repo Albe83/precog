@@ -206,6 +206,22 @@ def test_read_capabilities_resource_returns_semantic_shape() -> None:
         assert backend_only not in text
 
 
+def test_capabilities_quantiles_are_owned_by_the_mcp_contract() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/v1/capabilities":
+            payload = _capabilities_payload()
+            payload["quantile_levels"] = [0.5]
+            return httpx.Response(200, json=payload)
+        return _ok_handler(request)
+
+    async def scenario(session: ClientSession):
+        return await session.read_resource("precog://capabilities")
+
+    result = asyncio.run(_run(handler, scenario))
+    payload = json.loads(result.contents[0].text)
+    assert payload["limits"]["quantile_levels"] == list(QUANTILE_LEVELS)
+
+
 def test_capabilities_resource_falls_back_when_api_unavailable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET":
