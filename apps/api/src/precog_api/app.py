@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 from precog_api.config import Settings
 from precog_api.engine import Engine, FakeEngine
+from precog_api.execution import ExecutionProblem, ExecutionResult
+from precog_api.mapping import to_execution_problems, to_forecast_response
 from precog_api.observability import (
     FORECAST_SERIES,
     INFLIGHT,
@@ -35,7 +37,6 @@ from precog_schemas import (
     ForecastRequest,
     ForecastResponse,
     Mode,
-    Usage,
 )
 
 logger = logging.getLogger("precog.api")
@@ -291,26 +292,31 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         payload: Annotated[ForecastRequest, Body(openapi_examples=FORECAST_EXAMPLES)],
     ) -> ForecastResponse:
         _enforce_limits(payload, settings, app.state.engine)
+        problems = to_execution_problems(payload)
         started = time.perf_counter()
         async with app.state.semaphore:
             try:
                 results = await asyncio.wait_for(
-                    asyncio.to_thread(app.state.engine.predict, payload),
+                    asyncio.to_thread(_predict_all, app.state.engine, problems),
                     timeout=settings.request_timeout_s,
                 )
             except TimeoutError as exc:
                 raise HTTPException(status_code=504, detail="forecast timed out") from exc
         latency_ms = (time.perf_counter() - started) * 1000
         FORECAST_SERIES.inc(len(payload.series))
-        return ForecastResponse(
+        return to_forecast_response(
+            payload,
+            results,
             model=settings.model_name,
-            horizon=payload.horizon,
-            quantile_levels=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-            results=results,
-            usage=Usage(latency_ms=round(latency_ms, 3), context_len=payload.series[0].context_len),
+            latency_ms=round(latency_ms, 3),
         )
 
     return app
+
+
+def _predict_all(engine: Engine, problems: list[ExecutionProblem]) -> list[ExecutionResult]:
+    """Run each compiled execution problem through the engine."""
+    return [engine.predict(problem) for problem in problems]
 
 
 def _client_key(request: Request) -> str:
