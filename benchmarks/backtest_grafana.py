@@ -18,9 +18,9 @@ from pathlib import Path
 
 import numpy as np
 
+from benchmarks import predict_univariate
 from precog_api.config import Settings
 from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import ForecastOptions, ForecastRequest, Mode, SeriesInput
 
 DATA = Path(__file__).parent / "data" / "grafana_sample.json"
 
@@ -39,16 +39,8 @@ def run_series(
 ) -> dict:
     series = values[:context]
     actual = np.asarray(values[context : context + horizon])
-    output = engine.predict(
-        ForecastRequest(
-            mode=Mode.univariate,
-            horizon=horizon,
-            series=[SeriesInput(id=name, target=series)],
-            options=ForecastOptions(return_quantiles=True),
-        )
-    )[0]
-    pred = np.asarray(output.forecast)
-    quantiles = np.asarray(output.quantiles)
+    pred, quantiles = predict_univariate(engine, name, series, horizon)
+    assert quantiles is not None
     lower, upper = quantiles[:, 0], quantiles[:, -1]
 
     persistence = np.full(horizon, series[-1])

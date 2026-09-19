@@ -14,9 +14,10 @@ from pathlib import Path
 
 import numpy as np
 
+from benchmarks import predict_univariate
 from precog_api.config import Settings
 from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import QUANTILE_LEVELS, ForecastOptions, ForecastRequest, Mode, SeriesInput
+from precog_schemas import QUANTILE_LEVELS
 
 DATA = Path(__file__).parent / "data" / "complex_series.json"
 OUT = Path(__file__).parent / "data" / "calibration.json"
@@ -64,15 +65,8 @@ def main() -> None:
                 break
             context = window[end - CONTEXT : end]
             actual = np.asarray(window[end : end + HORIZON])
-            output = engine.predict(
-                ForecastRequest(
-                    mode=Mode.univariate,
-                    horizon=HORIZON,
-                    series=[SeriesInput(id="s", target=context.tolist())],
-                    options=ForecastOptions(return_quantiles=True),
-                )
-            )[0]
-            raw = np.asarray(output.quantiles)
+            _, raw = predict_univariate(engine, "s", context, HORIZON)
+            assert raw is not None
             for scale in SCALES:
                 quantiles = _calibrate(raw, scale)
                 coverage[scale].append(

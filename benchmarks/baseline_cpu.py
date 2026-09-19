@@ -15,10 +15,10 @@ from pathlib import Path
 
 import numpy as np
 
+from benchmarks import predict_univariate
 from benchmarks.synthetic import generate_series
 from precog_api.config import Settings
 from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import ForecastOptions, ForecastRequest, Mode, SeriesInput
 
 OUT = Path(__file__).parent / "data" / "baseline_cpu.json"
 CACHE_DIR = "/home/albe/.cache/precog/models"
@@ -47,14 +47,8 @@ def main() -> None:
         for horizon in HORIZONS:
             latencies: list[float] = []
             for _ in range(REPEATS):
-                request = ForecastRequest(
-                    mode=Mode.univariate,
-                    horizon=horizon,
-                    series=[SeriesInput(id="synthetic", target=series.tolist())],
-                    options=ForecastOptions(),
-                )
                 started = time.perf_counter()
-                engine.predict(request)
+                predict_univariate(engine, "synthetic", series, horizon, return_quantiles=False)
                 latencies.append((time.perf_counter() - started) * 1000)
             run = {
                 "context": context,

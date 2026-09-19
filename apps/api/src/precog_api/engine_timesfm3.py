@@ -2,18 +2,28 @@
 
 Imported lazily so the base installation does not require torch. The mapping
 follows the real TimesFM-3 API (``TimesFM3Evaluator.predict_batch``) validated
-during the PREC-1 spike.
+during the PREC-1 spike and contains all backend-specific shape translation
+(ADR 0006): single vs joint targets, covariate stacking, known-future
+history+future concatenation, quantile-column selection and evaluator options.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from precog_api.config import Settings
-from precog_schemas import QUANTILE_LEVELS, ForecastRequest, Mode, SeriesForecast
+from precog_api.execution import (
+    ExecutionKnownFutureCovariate,
+    ExecutionPastCovariate,
+    ExecutionProblem,
+    ExecutionResult,
+    QuantileExecutionResult,
+    TargetExecutionResult,
+)
+from precog_schemas import QUANTILE_LEVELS
 
 # Used only when the engine extra is unavailable; the live evaluator is the
 # source of truth so capability enforcement cannot drift from the backend.
@@ -77,123 +87,116 @@ class TimesFM3Engine:
     def max_variates(self) -> int:
         return self._max_variates
 
-    def predict(self, request: ForecastRequest) -> list[SeriesForecast]:
-        if request.mode is Mode.multivariate:
-            return self._predict_multivariate(request)
-        return self._predict_univariate(request)
+    def predict(self, problem: ExecutionProblem) -> ExecutionResult:
+        if len(problem.targets) == 1:
+            return self._predict_univariate(problem)
+        return self._predict_joint(problem)
 
-    def _predict_univariate(self, request: ForecastRequest) -> list[SeriesForecast]:
-        interpolate = request.options.interpolate_missing
-        contexts = [_interpolate(s.target, interpolate) for s in request.series]
-        past_only = _covariate_list(request, future=False, interpolate=interpolate)
-        past_future = _covariate_list(request, future=True, interpolate=interpolate)
+    def _predict_univariate(self, problem: ExecutionProblem) -> ExecutionResult:
+        target = problem.targets[0]
+        past_only = _stacked(problem.past_covariates)
+        past_future = _stacked_known(problem.known_future_covariates)
         outputs = list(
             self._evaluator.predict_batch(
-                contexts=contexts,
-                horizon=request.horizon,
-                past_only_covariates=past_only,
-                past_future_covariates=past_future,
-                ts_ids=[s.id for s in request.series],
-                return_quantiles=request.options.return_quantiles,
-                use_symmetric_averaging=request.options.symmetric_averaging,
+                contexts=[np.asarray(target.values, dtype=np.float32)],
+                horizon=problem.horizon,
+                past_only_covariates=[past_only] if past_only is not None else None,
+                past_future_covariates=[past_future] if past_future is not None else None,
+                ts_ids=[target.id],
+                **_EVALUATOR_OPTIONS,
+                return_quantiles=bool(problem.quantiles),
             )
         )
-        results: list[SeriesForecast] = []
-        for series, output in zip(request.series, outputs, strict=True):
-            quantiles: list[list[float]] | None = None
-            if request.options.return_quantiles and output.quantiles is not None:
-                quantiles = _calibrate_quantiles(
-                    np.asarray(output.quantiles), request.options.quantile_spread_scale
-                ).tolist()
-            results.append(
-                SeriesForecast(
-                    id=series.id,
-                    forecast=np.asarray(output.forecast).reshape(-1).tolist(),
-                    quantiles=quantiles,
-                )
-            )
-        return results
+        return ExecutionResult(targets=[_target_result(target.id, outputs[0], problem)])
 
-    def _predict_multivariate(self, request: ForecastRequest) -> list[SeriesForecast]:
-        interpolate = request.options.interpolate_missing
-        targets = np.stack([_interpolate(s.target, interpolate) for s in request.series])
+    def _predict_joint(self, problem: ExecutionProblem) -> ExecutionResult:
+        contexts = [np.asarray(target.values, dtype=np.float32) for target in problem.targets]
         kwargs: dict[str, object] = {}
-        past_only = _stacked_covariates(request.past_covariates, interpolate=interpolate)
-        past_future = _stacked_covariates(request.future_covariates, interpolate=interpolate)
+        past_only = _stacked(problem.past_covariates)
+        past_future = _stacked_known(problem.known_future_covariates)
         if past_only is not None:
             kwargs["past_only_covariates"] = [past_only]
         if past_future is not None:
             kwargs["past_future_covariates"] = [past_future]
         outputs = list(
             self._evaluator.predict_batch(
-                contexts=[targets],
-                horizon=request.horizon,
-                return_quantiles=request.options.return_quantiles,
-                use_symmetric_averaging=request.options.symmetric_averaging,
+                contexts=[np.stack(contexts)],
+                horizon=problem.horizon,
+                **_EVALUATOR_OPTIONS,
+                return_quantiles=bool(problem.quantiles),
                 **kwargs,
             )
         )
         output = outputs[0]
-        forecasts = np.atleast_2d(np.asarray(output.forecast))
-        quantiles = (
-            np.asarray(output.quantiles)
-            if request.options.return_quantiles and output.quantiles is not None
-            else None
+        return ExecutionResult(
+            targets=[
+                _target_result(target.id, output, problem, index=index)
+                for index, target in enumerate(problem.targets)
+            ]
         )
-        if quantiles is not None:
-            quantiles = _calibrate_quantiles(quantiles, request.options.quantile_spread_scale)
-        return [
-            SeriesForecast(
-                id=series.id,
-                forecast=forecasts[i].reshape(-1).tolist(),
-                quantiles=(quantiles[i].tolist() if quantiles is not None else None),
-            )
-            for i, series in enumerate(request.series)
-        ]
 
 
-def _covariate_list(
-    request: ForecastRequest, *, future: bool, interpolate: bool = False
-) -> list[np.ndarray | None] | None:
-    """Build the per-series covariate list expected by ``predict_batch``."""
-    field = "future_covariates" if future else "past_covariates"
-    if not any(getattr(s, field) for s in request.series):
-        return None
-    covariates: list[np.ndarray | None] = []
-    for series in request.series:
-        channels = getattr(series, field)
-        if channels:
-            covariates.append(np.stack([_interpolate(v, interpolate) for v in channels.values()]))
-        else:
-            covariates.append(None)
-    return covariates
+# Explicit evaluator options (ADR 0007): set rather than inherited, so evaluator
+# benchmark defaults cannot silently change Precog behavior.
+_EVALUATOR_OPTIONS: dict[str, object] = {
+    "use_symmetric_averaging": False,
+    "make_positive": False,
+    "sort_quantiles": True,
+    "use_znorm": False,
+    "padding_mode": "none",
+}
 
 
-def _stacked_covariates(
-    covariates: Mapping[str, list[float]], *, interpolate: bool = False
-) -> np.ndarray | None:
-    """Stack request-level covariate channels into an ``(n_channels, length)`` array."""
+def _stacked(covariates: list[ExecutionPastCovariate]) -> np.ndarray | None:
+    """Stack covariate channels into an ``(n_channels, length)`` array."""
     if not covariates:
         return None
-    return np.stack([_interpolate(values, interpolate) for values in covariates.values()])
+    return np.stack([np.asarray(covariate.values, dtype=np.float32) for covariate in covariates])
 
 
-def _interpolate(values: list[float], enabled: bool) -> np.ndarray:
-    """Return a float32 array, linearly filling interior NaNs when enabled."""
-    array = np.asarray(values, dtype=np.float32)
-    if not enabled or np.isfinite(array).all():
-        return array
-    indices = np.arange(array.size)
-    finite = np.isfinite(array)
-    array = array.copy()
-    array[~finite] = np.interp(indices[~finite], indices[finite], array[finite])
-    return array
+def _stacked_known(known: list[ExecutionKnownFutureCovariate]) -> np.ndarray | None:
+    """Concatenate known-future ``history + future`` into the backend array."""
+    if not known:
+        return None
+    return np.stack(
+        [
+            np.asarray([*covariate.history, *covariate.future], dtype=np.float32)
+            for covariate in known
+        ]
+    )
 
 
-def _calibrate_quantiles(quantiles: np.ndarray, scale: float) -> np.ndarray:
-    """Scale the quantile spread around the median, preserving order."""
-    if scale == 1.0:
-        return quantiles
-    median_index = len(QUANTILE_LEVELS) // 2
-    median = quantiles[..., median_index : median_index + 1]
-    return median + (quantiles - median) * scale
+def _target_result(
+    target_id: str,
+    output: Any,
+    problem: ExecutionProblem,
+    *,
+    index: int | None = None,
+) -> TargetExecutionResult:
+    """Normalize one backend output into a canonical target result."""
+    forecast = np.asarray(output.forecast)
+    point = forecast.reshape(-1) if index is None else np.atleast_2d(forecast)[index].reshape(-1)
+
+    quantiles: list[QuantileExecutionResult] = []
+    if problem.quantiles:
+        raw = output.quantiles
+        if raw is None:
+            raise RuntimeError("evaluator returned no quantiles although they were requested")
+        matrix = np.asarray(raw)
+        if index is not None:
+            matrix = matrix[index]
+        for level in problem.quantiles:
+            column = _column_index(level)
+            quantiles.append(
+                QuantileExecutionResult(level=level, values=matrix[:, column].tolist())
+            )
+
+    return TargetExecutionResult(id=target_id, forecast=point.tolist(), quantiles=quantiles)
+
+
+def _column_index(level: float) -> int:
+    """Map a requested quantile level to its column in the fixed TimesFM grid."""
+    for index, candidate in enumerate(QUANTILE_LEVELS):
+        if abs(candidate - level) < 1e-9:
+            return index
+    raise ValueError(f"unsupported quantile level {level}")
