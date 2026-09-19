@@ -1,4 +1,4 @@
-{{- if and .Values.tests.enabled .Values.mcp.enabled }}
+{{- if and .Values.tests.enabled .Values.mcp.enabled (or (eq .Values.mcp.deploymentMode "deployment") .Values.mcp.service.enabled) }}
 apiVersion: v1
 kind: Pod
 metadata:

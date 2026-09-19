@@ -140,6 +140,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: configurable MCP topology — `mcp.deploymentMode` (`sidecar`, default) or
+  `deployment` (separate Deployment+Service); optional MCP Service in sidecar
+  mode. Migration: existing installs that used the separate `precog-mcp` Service
+  must set `mcp.deploymentMode=deployment`.
 - Helm: optional HTTPRoute (Gateway API) template (`httpRoute.*`, disabled by
   default) to publish the MCP endpoint at `/mcp` and optionally the REST API.
 - Helm: optional NetworkPolicy templates (`networkPolicy.*`, disabled by

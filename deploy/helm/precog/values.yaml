@@ -134,21 +134,27 @@ serviceAccount:
   create: true
   name: ""
 
-# Optional MCP server deployment (talks to the API over HTTP, no model weights).
+# Optional MCP server. Default topology is a sidecar container in the API pod
+# (fewer pods); use deploymentMode=deployment for a separate Deployment+Service.
 mcp:
   enabled: false
+  deploymentMode: sidecar
   image:
     # Published: ghcr.io/albe83/precog-mcp.
     repository: precog-mcp
     tag: local
     pullPolicy: IfNotPresent
-  # Defaults to the API Service in this release when empty.
+  # Defaults to the API Service in this release when empty. In sidecar mode it
+  # falls back to 127.0.0.1.
   apiUrl: ""
   # Allowed Host headers for the MCP HTTP transport (comma-separated), or "*" to
   # disable DNS-rebinding protection. Set it when a gateway reaches the service
   # by DNS name (e.g. "precog-mcp.<ns>.svc:80,mcp-cortana.gewiss.ai").
   allowedHosts: ""
   service:
+    # Sidecar mode: optional Service for gateways/tests that need a stable name.
+    # Deployment mode: a Service is always rendered.
+    enabled: false
     port: 80
     targetPort: 8765
   resources:

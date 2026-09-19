@@ -183,6 +183,21 @@ helm upgrade precog deploy/helm/precog -n precog
 helm uninstall precog -n precog
 ```
 
+## MCP topology
+
+- **`sidecar` (default)** — the MCP runs as a second container in the API pod
+  (`PRECOG_API_URL=http://127.0.0.1:8000`). Fewer pods, no cross-pod hop; but it
+  scales with the API, shares the pod lifecycle and its resource requests add
+  up. A stable Service is optional (`mcp.service.enabled=true`), needed by
+  gateways and `helm test`.
+- **`deployment`** — a separate `precog-mcp` Deployment and Service (independent
+  scaling/lifecycle). Use it when a gateway targets the MCP Service or you want
+  to scale it independently.
+
+Migration: installs that relied on the separate `precog-mcp` Service must set
+`mcp.deploymentMode=deployment` (or enable `mcp.service.enabled` in sidecar
+mode).
+
 ## Values
 
 ### Top level
@@ -290,13 +305,15 @@ helm uninstall precog -n precog
 
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
-| `mcp.enabled` | bool | `false` | Deploy the MCP server next to the API. |
+| `mcp.enabled` | bool | `false` | Deploy the MCP server. |
+| `mcp.deploymentMode` | string | `sidecar` | `sidecar` (container in the API pod) or `deployment` (separate Deployment+Service). |
 | `mcp.image.repository` | string | `precog-mcp` | MCP image (e.g. `ghcr.io/albe83/precog-mcp`). |
 | `mcp.image.tag` | string | `local` | MCP image tag. |
 | `mcp.image.pullPolicy` | string | `IfNotPresent` | MCP pull policy. |
 | `mcp.apiUrl` | string | `""` | API URL; defaults to the API Service in this release. |
 | `mcp.allowedHosts` | string | `""` | Allowed Host headers (comma-separated) or `*` to disable the check. |
 | `mcp.service.port` | int | `80` | MCP Service port. |
+| `mcp.service.enabled` | bool | `false` | Sidecar mode only: render an MCP Service (deployment mode always has one). |
 | `mcp.service.targetPort` | int | `8765` | MCP container port. |
 | `mcp.resources` | map | 50m/128Mi → 500m/512Mi | MCP resources. |
 | `mcp.terminationGracePeriodSeconds` | int | `30` | MCP pod termination grace period. |

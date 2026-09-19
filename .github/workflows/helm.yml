@@ -72,6 +72,11 @@ jobs:
             --set httpRoute.parentRefs[0].namespace=gateway-system \
             --set httpRoute.api.enabled=true \
             --set mcp.enabled=true >/dev/null
+          helm template precog "$chart" --set mcp.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set mcp.enabled=true --set mcp.service.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set mcp.enabled=true --set mcp.deploymentMode=deployment >/dev/null
 
       - name: guard (httpRoute requires parentRefs)
         run: |
