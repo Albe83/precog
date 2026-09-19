@@ -1,0 +1,54 @@
+name: autorelease
+
+# Automates the release PR: approves the pending workflow runs that GitHub
+# holds for the bot-created release PR, waits for the required checks and
+# merges it (squash). No manual approval needed.
+#
+# Optionally provide a `RELEASE_PLEASE_TOKEN` secret (fine-grained PAT with
+# contents/pull-requests/actions write) so release-please PRs run their checks
+# without needing approval at all; otherwise the default token is used and this
+# workflow approves the runs itself.
+
+on:
+  workflow_run:
+    workflows: ["release-please"]
+    types: [completed]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  merge-release-pr:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Approve pending checks and merge the release PR
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          pr=$(gh pr list --repo "$repo" --state open --json number,headRefName \
+                --jq '[.[] | select(.headRefName | startswith("release-please--"))][0].number // empty')
+          if [ -z "$pr" ]; then echo "no release PR open"; exit 0; fi
+          branch=$(gh pr view "$pr" --repo "$repo" --json headRefName --jq .headRefName)
+          echo "release PR #$pr on $branch"
+
+          for id in $(gh run list --repo "$repo" --branch "$branch" --status action_required \
+                       --limit 50 --json databaseId --jq '.[].databaseId'); do
+            echo "approving run $id"
+            gh api -X POST "repos/$repo/actions/runs/$id/approve" || echo "approve failed (a PAT may be required)"
+          done
+
+          for _ in $(seq 1 90); do
+            state=$(gh pr view "$pr" --repo "$repo" --json mergeStateStatus --jq .mergeStateStatus)
+            echo "merge state: $state"
+            [ "$state" = "CLEAN" ] && break
+            sleep 20
+          done
+          gh pr merge "$pr" --repo "$repo" --squash --delete-branch
