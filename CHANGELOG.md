@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.11.0](https://github.com/Albe83/precog/compare/v0.10.0...v0.11.0) (2026-09-19)
+
+
+### Features
+
+* **api:** handle non-finite inputs and optional interpolation ([#111](https://github.com/Albe83/precog/issues/111)) ([c9a5e47](https://github.com/Albe83/precog/commit/c9a5e470acde6462ac7849e65d1b2daa41434796))
+* **api:** prune old model revisions from the cache ([#113](https://github.com/Albe83/precog/issues/113)) ([beaa9cb](https://github.com/Albe83/precog/commit/beaa9cbdfd23644d12731718338a97ed77dc760c))
+
 ## [0.10.0](https://github.com/Albe83/precog/compare/v0.9.0...v0.10.0) (2026-09-18)
 
 
