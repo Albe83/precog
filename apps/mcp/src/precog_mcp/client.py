@@ -22,12 +22,23 @@ class ApiError(RuntimeError):
         self.detail = detail
 
 
+PROBLEM_MEDIA_TYPE = "application/problem+json"
+
+
 def _problem_detail(response: httpx.Response) -> str:
+    """Return a sanitized message for an error response.
+
+    Only trust the Precog problem-details media type; never forward an arbitrary
+    (possibly proxied) response body to MCP consumers.
+    """
+    media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type != PROBLEM_MEDIA_TYPE:
+        return f"Precog API error (HTTP {response.status_code})"
     try:
         payload = response.json()
     except ValueError:
-        return response.text or f"HTTP {response.status_code}"
-    title = payload.get("title", "error")
+        return f"Precog API error (HTTP {response.status_code})"
+    title = payload.get("title") or "error"
     detail = payload.get("detail")
     return f"{title}: {detail}" if detail else str(title)
 

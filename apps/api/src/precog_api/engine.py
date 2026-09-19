@@ -19,6 +19,14 @@ class Engine(Protocol):
     def ready(self) -> bool:
         """Whether the engine finished loading and can serve forecasts."""
 
+    @property
+    def max_context(self) -> int | None:
+        """Effective context length honored by the engine, or ``None`` if unbounded."""
+
+    @property
+    def max_variates(self) -> int | None:
+        """Effective variates per forward pass, or ``None`` if unbounded."""
+
     def predict(self, request: ForecastRequest) -> list[SeriesForecast]:
         """Return one forecast per input series."""
 
@@ -26,12 +34,28 @@ class Engine(Protocol):
 class FakeEngine:
     """Deterministic engine that repeats the last observed value."""
 
-    def __init__(self, *, ready: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        ready: bool = True,
+        max_context: int | None = None,
+        max_variates: int | None = None,
+    ) -> None:
         self._ready = ready
+        self._max_context = max_context
+        self._max_variates = max_variates
 
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def max_context(self) -> int | None:
+        return self._max_context
+
+    @property
+    def max_variates(self) -> int | None:
+        return self._max_variates
 
     def predict(self, request: ForecastRequest) -> list[SeriesForecast]:
         results: list[SeriesForecast] = []

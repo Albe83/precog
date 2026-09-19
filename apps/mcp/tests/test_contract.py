@@ -57,7 +57,11 @@ def _rest_payload(ids: list[str], horizon: int) -> dict[str, Any]:
             {
                 "id": series_id,
                 "forecast": [1.0] * horizon,
-                "quantiles": [[float(index)] * horizon for index in range(len(QUANTILE_LEVELS))],
+                # Canonical REST orientation: [horizon][quantile].
+                "quantiles": [
+                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
+                    for row in range(horizon)
+                ],
             }
             for series_id in ids
         ],
@@ -135,6 +139,94 @@ def test_documented_full_payload_is_valid() -> None:
     assert [target["id"] for target in structured["targets"]] == ["cpu_usage", "memory_usage"]
     assert list(structured["targets"][0]["quantiles"]) == ["0.1", "0.9"]
     assert structured["warnings"] == []
+
+
+def test_quantiles_cross_the_real_api_serialization_boundary() -> None:
+    """FakeEngine -> real Precog API -> MCP client -> adapter -> structured result.
+
+    Exercises the canonical REST quantile orientation instead of fabricating the
+    adapter's expected payload.
+    """
+    from precog_api.app import create_app
+    from precog_api.config import Settings as ApiSettings
+    from precog_api.engine import FakeEngine
+
+    async def scenario() -> None:
+        api = create_app(ApiSettings(engine="fake"), engine=FakeEngine())
+        async with api.router.lifespan_context(api):
+            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            server = create_server(Settings(api_url="http://api.test"), client=client)
+            app = server.streamable_http_app(
+                transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+            )
+            async with app.router.lifespan_context(app):
+                transport = httpx2.ASGITransport(app=app)
+                async with httpx2.AsyncClient(
+                    transport=transport, base_url="http://localhost"
+                ) as http:
+                    async with streamable_http_client("http://localhost/mcp", http_client=http) as (
+                        read,
+                        write,
+                    ):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            result = await session.call_tool(
+                                "forecast",
+                                {
+                                    "targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}],
+                                    "horizon": 3,
+                                    "quantiles": [0.1, 0.9],
+                                },
+                            )
+                            assert result.is_error is False
+                            quantiles = result.structured_content["targets"][0]["quantiles"]
+                            # FakeEngine repeats the last value for every step.
+                            assert quantiles["0.1"] == [3.0, 3.0, 3.0]
+                            assert quantiles["0.9"] == [3.0, 3.0, 3.0]
+
+    asyncio.run(scenario())
+
+
+def test_runtime_capability_violation_maps_to_forecast_rejected() -> None:
+    from precog_api.app import create_app
+    from precog_api.config import Settings as ApiSettings
+    from precog_api.engine import FakeEngine
+
+    async def scenario():
+        api = create_app(
+            ApiSettings(engine="fake", max_series=64), engine=FakeEngine(max_variates=1)
+        )
+        async with api.router.lifespan_context(api):
+            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            server = create_server(Settings(api_url="http://api.test"), client=client)
+            app = server.streamable_http_app(
+                transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+            )
+            async with app.router.lifespan_context(app):
+                transport = httpx2.ASGITransport(app=app)
+                async with httpx2.AsyncClient(
+                    transport=transport, base_url="http://localhost"
+                ) as http:
+                    async with streamable_http_client("http://localhost/mcp", http_client=http) as (
+                        read,
+                        write,
+                    ):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            return await session.call_tool(
+                                "forecast",
+                                {
+                                    "targets": [
+                                        {"id": "a", "values": [1.0, 2.0, 3.0]},
+                                        {"id": "b", "values": [1.0, 2.0, 3.0]},
+                                    ],
+                                    "horizon": 2,
+                                },
+                            )
+
+    result = asyncio.run(scenario())
+    assert result.is_error is True
+    assert json.loads(result.content[0].text)["code"] == "FORECAST_REJECTED"
 
 
 def test_documented_invalid_length_error_shape() -> None:

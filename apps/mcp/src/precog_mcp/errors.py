@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from collections.abc import Mapping
@@ -12,6 +13,10 @@ from mcp.server.context import CallNext, ServerRequestContext
 from pydantic import ValidationError
 
 from precog_mcp.adapter import ErrorCode, ForecastAdapterError
+
+logger = logging.getLogger("precog.mcp")
+
+INTERNAL_ERROR_MESSAGE = "Precog MCP encountered an unexpected internal error"
 
 # Public argument names per tool, used to reject removed/unknown fields as
 # additional properties even though the SDK's generated argument model ignores
@@ -152,10 +157,7 @@ class ToolErrorMiddleware:
         text = _first_text(result)
         payload = extract_envelope(text)
         if payload is None:
-            payload = {
-                "code": ErrorCode.INVALID_REQUEST.value,
-                "message": text or "invalid request",
-            }
+            payload = _untyped_failure(text)
         return _error_result(payload)
 
     def _reject_unknown_arguments(
@@ -178,6 +180,22 @@ class ToolErrorMiddleware:
                 "details": {"unknown": unknown},
             }
         )
+
+
+_VALIDATION_ERROR_MARKER = "validation error"
+
+
+def _untyped_failure(text: str | None) -> dict[str, Any]:
+    """Classify a tool failure that did not carry a Precog envelope.
+
+    The SDK's own input-schema rejections are the caller's mistake and keep
+    field-level context; anything else is an unexpected server-side defect whose
+    details stay in the logs.
+    """
+    if text and _VALIDATION_ERROR_MARKER in text:
+        return {"code": ErrorCode.INVALID_REQUEST.value, "message": text}
+    logger.error("unexpected tool failure: %s", text or "<no message>")
+    return {"code": ErrorCode.INTERNAL_ERROR.value, "message": INTERNAL_ERROR_MESSAGE}
 
 
 def _harden_tool_schemas(result: Any) -> Any:

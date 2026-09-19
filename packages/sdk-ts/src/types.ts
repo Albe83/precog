@@ -52,6 +52,7 @@ export interface Capabilities {
   max_horizon: number;
   max_context: number;
   max_series: number;
+  max_variates?: number | null;
   quantile_levels: number[];
   covariates: Record<string, boolean>;
   auth_required: boolean;

@@ -32,7 +32,11 @@ def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
             {
                 "id": series_id,
                 "forecast": [1.0] * horizon,
-                "quantiles": [[float(index)] * horizon for index in range(len(QUANTILE_LEVELS))],
+                # Canonical REST orientation: [horizon][quantile].
+                "quantiles": [
+                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
+                    for row in range(horizon)
+                ],
             }
             for series_id in ids
         ],
@@ -279,6 +283,47 @@ def test_forecast_batch_oversize_is_a_tool_error() -> None:
     payload = _envelope(result)
     assert payload["code"] == "INVALID_REQUEST"
     assert payload["details"]["max"] == 1
+
+
+def test_missing_required_field_is_invalid_request() -> None:
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast", {"horizon": 2})
+
+    result = asyncio.run(_run(_ok_handler, scenario))
+    assert result.is_error is True
+    assert _envelope(result)["code"] == "INVALID_REQUEST"
+
+
+def test_unexpected_tool_failure_is_generic_internal_error() -> None:
+    client = ForecastApiClient("http://api.test", transport=httpx.MockTransport(_ok_handler))
+    server = create_server(Settings(api_url="http://api.test"), client=client)
+
+    @server.tool(name="boom", description="crash for the test")
+    async def boom() -> dict[str, Any]:
+        raise RuntimeError("secret internal http://internal.example:9999")
+
+    app = server.streamable_http_app(
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    )
+
+    async def scenario():
+        async with app.router.lifespan_context(app):
+            transport = httpx2.ASGITransport(app=app)
+            async with httpx2.AsyncClient(transport=transport, base_url="http://localhost") as http:
+                async with streamable_http_client("http://localhost/mcp", http_client=http) as (
+                    read,
+                    write,
+                ):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        return await session.call_tool("boom", {})
+
+    result = asyncio.run(scenario())
+    assert result.is_error is True
+    payload = _envelope(result)
+    assert payload["code"] == "INTERNAL_ERROR"
+    assert "secret" not in result.content[0].text
+    assert "internal.example" not in result.content[0].text
 
 
 def test_metrics_count_success_and_error_protocol_calls() -> None:
