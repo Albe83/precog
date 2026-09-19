@@ -244,8 +244,8 @@ def test_backtest_single_target_single_window() -> None:
     for name in ("mae", "rmse", "smape"):
         assert math.isfinite(metrics[name])
         assert metrics[name] >= 0.0
-    assert metrics["coverage"]["lower"] == 0.1
-    assert metrics["coverage"]["upper"] == 0.9
+    assert metrics["coverage"]["lower_quantile"] == 0.1
+    assert metrics["coverage"]["upper_quantile"] == 0.9
     assert 0.0 <= metrics["coverage"]["percent"] <= 100.0
 
 

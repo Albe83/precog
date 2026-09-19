@@ -239,8 +239,8 @@ class ForecastResult(_StrictModel):
 class IntervalCoverage(_StrictModel):
     """Empirical coverage of the outer requested prediction interval."""
 
-    lower: FiniteFloat
-    upper: FiniteFloat
+    lower_quantile: FiniteFloat
+    upper_quantile: FiniteFloat
     percent: Percent
 
 

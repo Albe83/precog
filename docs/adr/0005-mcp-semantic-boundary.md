@@ -81,9 +81,9 @@ and the MCP server is semantic.
   REST API, and vice versa.
 - The MCP server carries a translation layer that must validate both the
   semantic request and the upstream response (fail closed on malformed data).
-- Semantic operations that need more than one REST call (for example
-  backtesting) are orchestrated inside the MCP server, not by adding REST
-  endpoints.
+- In the current implementation, semantic operations may be composed by the
+  MCP server using the existing REST API. This does not constrain how
+  equivalent capabilities may be exposed by future interfaces.
 - Runtime capability limits that affect whether a request can be honored with
   the promised semantics are enforced at the API/engine boundary and surfaced
   to MCP consumers through stable error codes.

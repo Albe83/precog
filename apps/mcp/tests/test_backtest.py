@@ -116,8 +116,8 @@ def test_evaluate_backtest_reports_objective_metrics() -> None:
     assert target.metrics.smape == pytest.approx(39.285714285714285)
     coverage = target.metrics.coverage
     assert coverage is not None
-    assert coverage.lower == 0.1
-    assert coverage.upper == 0.9
+    assert coverage.lower_quantile == 0.1
+    assert coverage.upper_quantile == 0.9
     assert coverage.percent == pytest.approx(50.0)
     assert result.horizon == HORIZON
     assert result.model.id == "timesfm-3.0"
