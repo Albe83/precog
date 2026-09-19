@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.17.0](https://github.com/Albe83/precog/compare/v0.16.0...v0.17.0) (2026-09-19)
+
+
+### Features
+
+* **mcp:** expose semantic capabilities resource ([#167](https://github.com/Albe83/precog/issues/167)) ([526a3fc](https://github.com/Albe83/precog/commit/526a3fc018b999e77d265863ef0c39c761eff406)), closes [#158](https://github.com/Albe83/precog/issues/158)
+
 ## [0.16.0](https://github.com/Albe83/precog/compare/v0.15.0...v0.16.0) (2026-09-19)
 
 
