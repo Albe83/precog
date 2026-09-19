@@ -19,9 +19,10 @@ from pathlib import Path
 
 import numpy as np
 
+from benchmarks import predict_multivariate, predict_univariate
 from precog_api.config import Settings
 from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import QUANTILE_LEVELS, ForecastOptions, ForecastRequest, Mode, SeriesInput
+from precog_schemas import QUANTILE_LEVELS
 
 DATA_DIR = Path(__file__).parent / "data"
 BASELINE = DATA_DIR / "benchmark_baseline.json"
@@ -102,16 +103,8 @@ def evaluate_series(name: str, values: list[float], engine: TimesFM3Engine) -> l
         }
         mase_scales: list[float] = []
         for context, actual in _windows(values, horizon):
-            output = engine.predict(
-                ForecastRequest(
-                    mode=Mode.univariate,
-                    horizon=horizon,
-                    series=[SeriesInput(id=name, target=context.tolist())],
-                    options=ForecastOptions(return_quantiles=True),
-                )
-            )[0]
-            pred = np.asarray(output.forecast)
-            quantiles = np.asarray(output.quantiles)
+            pred, quantiles = predict_univariate(engine, name, context, horizon)
+            assert quantiles is not None
             below, above = quantiles[:, 0], quantiles[:, -1]
             acc["coverage"].append(float(np.mean((actual >= below) & (actual <= above)) * 100))
             acc["pinball"].append(_pinball(actual, quantiles))
@@ -147,26 +140,12 @@ def multivariate_test(payload: dict, engine: TimesFM3Engine) -> None:
     horizon = 24
     contexts = [np.asarray(series[n][-CONTEXT:]) for n in names]
     actuals = [np.asarray(series[n][-horizon:]) for n in names]
-    joint = engine.predict(
-        ForecastRequest(
-            mode=Mode.multivariate,
-            horizon=horizon,
-            series=[
-                SeriesInput(id=n, target=c.tolist()) for n, c in zip(names, contexts, strict=True)
-            ],
-        )
-    )
+    joint = predict_multivariate(engine, names, contexts, horizon, return_quantiles=False)
     print("\n=== multivariate vs univariate (net_rx / net_tx, horizon 24) ===")
     for i, name in enumerate(names):
-        uni = engine.predict(
-            ForecastRequest(
-                mode=Mode.univariate,
-                horizon=horizon,
-                series=[SeriesInput(id=name, target=contexts[i].tolist())],
-            )
-        )[0]
-        uni_mae = float(np.mean(np.abs(actuals[i] - np.asarray(uni.forecast))))
-        mvi_mae = float(np.mean(np.abs(actuals[i] - np.asarray(joint[i].forecast))))
+        uni, _ = predict_univariate(engine, name, contexts[i], horizon, return_quantiles=False)
+        uni_mae = float(np.mean(np.abs(actuals[i] - uni)))
+        mvi_mae = float(np.mean(np.abs(actuals[i] - joint[i][0])))
         flag = "better" if mvi_mae < uni_mae else "worse"
         print(
             f"  {name:12s} univariate MAE={uni_mae:.4g}  multivariate MAE={mvi_mae:.4g}  ({flag})"
