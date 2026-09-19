@@ -140,6 +140,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: optional NetworkPolicy templates (`networkPolicy.*`, disabled by
+  default) for the API and MCP, with per-workload ingress/egress and a common
+  egress fallback.
 - Helm: `helm test` now also checks the MCP server (when enabled); documented
   that GitOps tools which skip Helm test hooks should set `tests.enabled=false`.
 - Helm: workload option parity and common options — `imagePullSecrets`,

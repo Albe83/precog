@@ -164,6 +164,30 @@
     "priorityClassName": { "type": "string" },
     "topologySpreadConstraints": { "type": "array" },
     "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "egress": { "type": "array" },
+        "api": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ingress": { "type": "array" },
+            "egress": { "type": "array" }
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ingress": { "type": "array" },
+            "egress": { "type": "array" }
+          }
+        }
+      }
+    },
     "tests": {
       "type": "object",
       "additionalProperties": false,

@@ -61,6 +61,11 @@ jobs:
             --set topologySpreadConstraints[0].topologyKey=kubernetes.io/hostname \
             --set topologySpreadConstraints[0].whenUnsatisfiable=ScheduleAnyway \
             --set mcp.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set networkPolicy.enabled=true \
+            --set networkPolicy.mcp.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=agentgateway \
+            --set networkPolicy.api.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=precog-mcp \
+            --set mcp.enabled=true >/dev/null
 
       - name: guard (downloadJob requires a persistent cache)
         run: |
