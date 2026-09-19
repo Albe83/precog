@@ -64,6 +64,10 @@ The same contract is available as OpenAPI examples on `/docs`.
 around the median; values above 1 widen the prediction intervals. The default is
 well calibrated on aggregate (see `benchmarks/calibration.py`).
 
+Non-finite inputs (`NaN`/`Inf`) are rejected with a clear error. Set
+`options.interpolate_missing=true` to fill interior gaps by linear
+interpolation; leading/trailing `NaN`s are still rejected.
+
 ## Configuration
 
 All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
