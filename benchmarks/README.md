@@ -19,6 +19,9 @@ Grafana / Thanos, compared with trivial baselines.
   `data/load_test[_<label>].json`.
 - `calibration.py` — quantile-spread calibration sweep on the real series
   (coverage vs pinball loss); writes `data/calibration.json`.
+- `symmetric_averaging.py` — compares `use_symmetric_averaging` on/off on the
+  real series (MAE, coverage, pinball, forecast sensitivity); writes
+  `data/symmetric_averaging.json`. Backs ADR 0007.
 
 ## Run
 
@@ -32,6 +35,7 @@ PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.baseline_cpu
 PRECOG_API_URL=http://127.0.0.1:8000 CONCURRENCY=4 REQUESTS=16 \
   .venv/bin/python -m benchmarks.load_test
 PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.calibration
+PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.symmetric_averaging
 ```
 
 ## Baselines
