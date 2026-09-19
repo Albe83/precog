@@ -339,7 +339,7 @@ GET /v1/capabilities    = execution/runtime capabilities
 | `limits.max_horizon` | Configured max horizon |
 | `limits.max_context` | Effective max context (min of config and engine) |
 | `limits.max_variates` | Effective variates per forward pass (min of config and engine), `null` if unbounded |
-| `limits.max_targets` | Configured policy ceiling on targets per problem; the executable maximum is `min(max_targets, max_variates)` once covariates are present |
+| `limits.max_targets` | Policy ceiling: the actual number of targets accepted for a specific request may be lower, because targets and covariate channels share the `max_variates` execution budget |
 | `quantile_levels` | Levels the engine can produce (fixed grid today) |
 | `features` | Execution-level support flags (point/probabilistic, past covariates, known-future covariates, joint targets) |
 | `auth_required` | Whether a bearer token is required |
