@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.17.1](https://github.com/Albe83/precog/compare/v0.17.0...v0.17.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **mcp:** own quantile capabilities and fail closed on bad problem+json ([#171](https://github.com/Albe83/precog/issues/171)) ([b5ed0d2](https://github.com/Albe83/precog/commit/b5ed0d23015080ef931a365ccbc294915904c62e)), closes [#169](https://github.com/Albe83/precog/issues/169) [#170](https://github.com/Albe83/precog/issues/170)
+
 ## [0.17.0](https://github.com/Albe83/precog/compare/v0.16.0...v0.17.0) (2026-09-19)
 
 
