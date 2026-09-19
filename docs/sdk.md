@@ -118,3 +118,9 @@ The SDK is validated against a running API:
 PRECOG_API_URL=http://127.0.0.1:8000 \
   pytest packages/sdk-python/tests/test_integration.py -m integration
 ```
+
+## TypeScript SDK
+
+A TypeScript client (`@precog/sdk`) lives in `packages/sdk-ts` (Node 18+ and
+browsers, `fetch`-based) with the same `forecast`/`capabilities` surface; see
+`packages/sdk-ts/README.md`.
