@@ -189,7 +189,8 @@ terminationGracePeriodSeconds: 360
 tests:
   enabled: true
 
-# Prometheus scraping for the API /metrics endpoint.
+# Prometheus scraping for the API and MCP `/metrics` endpoints (the selector
+# matches both Services when mcp.enabled=true).
 metrics:
   serviceMonitor:
     enabled: false
