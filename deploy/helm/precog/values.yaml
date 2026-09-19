@@ -16,6 +16,7 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 8000
+  annotations: {}
 
 # Model weights are downloaded into a mounted volume at startup (not baked in
 # the image). Defaults are conservative: an ephemeral emptyDir and a single
@@ -180,6 +181,11 @@ extraEnv: []
 extraEnvFrom: []
 extraVolumes: []
 extraVolumeMounts: []
+
+imagePullSecrets: []
+podLabels: {}
+priorityClassName: ""
+topologySpreadConstraints: []
 
 # API pod termination grace period; keep it above PRECOG_REQUEST_TIMEOUT_S
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.

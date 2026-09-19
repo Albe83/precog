@@ -140,6 +140,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: workload option parity and common options — `imagePullSecrets`,
+  `podLabels`, `priorityClassName`, `topologySpreadConstraints` and
+  `service.annotations` applied consistently to the API, MCP and download Job
+  (plus MCP scheduling/annotations parity). Defaults unchanged.
 - Helm: the optional ServiceMonitor scrapes both the API and MCP `/metrics`
   endpoints (the selector matches both Services); value comment and docs
   clarified.

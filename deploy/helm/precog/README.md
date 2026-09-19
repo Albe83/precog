@@ -176,6 +176,10 @@ helm uninstall precog -n precog
 | `extraEnvFrom` | list | `[]` | Extra `envFrom` sources (ConfigMap/Secret) on those containers. |
 | `extraVolumes` | list | `[]` | Extra pod volumes (e.g. a corporate CA Secret). |
 | `extraVolumeMounts` | list | `[]` | Extra volume mounts on those containers. |
+| `imagePullSecrets` | list | `[]` | Image pull secrets for both workloads (and the Job). |
+| `podLabels` | map | `{}` | Extra pod labels (API and MCP). |
+| `priorityClassName` | string | `""` | Pod priority class (API, MCP and Job). |
+| `topologySpreadConstraints` | list | `[]` | Pod topology spread constraints (API and MCP). |
 
 ### Image
 
@@ -192,6 +196,7 @@ helm uninstall precog -n precog
 | `service.type` | string | `ClusterIP` | Service type. |
 | `service.port` | int | `80` | Service port. |
 | `service.targetPort` | int | `8000` | API container port. |
+| `service.annotations` | map | `{}` | Annotations on both Services (API and MCP). |
 
 ### Model cache (`modelCache`)
 
