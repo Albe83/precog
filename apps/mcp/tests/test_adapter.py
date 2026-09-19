@@ -253,6 +253,40 @@ def test_execute_forecast_server_error_is_typed() -> None:
     assert info.value.code is ErrorCode.INFERENCE_FAILED
 
 
+def test_non_json_upstream_body_is_not_exposed() -> None:
+    secret = "http://internal.example:8080 secret-token"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text=secret, headers={"content-type": "text/html"})
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.INFERENCE_FAILED
+    assert "internal.example" not in info.value.message
+    assert "secret-token" not in info.value.message
+
+
+def test_non_json_4xx_body_is_not_exposed() -> None:
+    secret = "Traceback: internal host db.internal.example"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text=secret, headers={"content-type": "text/plain"})
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.FORECAST_REJECTED
+    assert "db.internal.example" not in info.value.message
+
+
+def test_json_non_problem_body_is_not_exposed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, json={"detail": "proxy at http://internal.example"})
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert "internal.example" not in info.value.message
+
+
 def test_map_api_error_auth_is_unavailable() -> None:
     error = map_api_error(ApiError("no auth", status=401))
     assert error.code is ErrorCode.API_UNAVAILABLE

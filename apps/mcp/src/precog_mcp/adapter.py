@@ -32,13 +32,18 @@ from precog_schemas import (
 
 
 class ErrorCode(StrEnum):
-    """Stable error codes for the MCP boundary."""
+    """Stable error codes for the MCP boundary.
+
+    The first five describe the forecast pipeline; ``INTERNAL_ERROR`` covers
+    unexpected MCP server defects that cannot be attributed to the caller.
+    """
 
     INVALID_REQUEST = "INVALID_REQUEST"
     FORECAST_REJECTED = "FORECAST_REJECTED"
     API_UNAVAILABLE = "API_UNAVAILABLE"
     UPSTREAM_CONTRACT_ERROR = "UPSTREAM_CONTRACT_ERROR"
     INFERENCE_FAILED = "INFERENCE_FAILED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
 class ForecastAdapterError(RuntimeError):

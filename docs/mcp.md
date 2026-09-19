@@ -163,10 +163,16 @@ Stable codes:
 | `API_UNAVAILABLE` | The Precog API is unreachable or timed out |
 | `UPSTREAM_CONTRACT_ERROR` | The API returned a malformed or inconsistent success response |
 | `INFERENCE_FAILED` | The API reported an inference/server failure |
+| `INTERNAL_ERROR` | The MCP server hit an unexpected internal defect; details stay in logs |
 
 `INVALID_REQUEST` also covers removed `forecast` fields: passing `mode`,
 `series`, `return_quantiles`, request-level covariate maps or any other unknown
 field is rejected.
+
+Error messages are sanitized: only intentional Precog problem-details are
+forwarded. An arbitrary or non-JSON upstream response body is never exposed to
+the agent, and unexpected failures never leak tracebacks, internal URLs or
+hostnames.
 
 ## Examples
 
