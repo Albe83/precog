@@ -177,6 +177,9 @@ class Capabilities(BaseModel):
     max_horizon: int
     max_context: int
     max_series: int
+    # Effective total variates per joint forecast (targets + covariates), or
+    # ``None`` when the active engine is unbounded.
+    max_variates: int | None = None
     quantile_levels: list[float]
     covariates: dict[str, bool]
     auth_required: bool

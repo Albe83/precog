@@ -15,6 +15,23 @@ import numpy as np
 from precog_api.config import Settings
 from precog_schemas import QUANTILE_LEVELS, ForecastRequest, Mode, SeriesForecast
 
+# Used only when the engine extra is unavailable; the live evaluator is the
+# source of truth so capability enforcement cannot drift from the backend.
+_FALLBACK_MAX_VARIATES = 32
+
+
+def effective_max_variates() -> int:
+    """Variates the active TimesFM-3 evaluator accepts per forward pass.
+
+    Above this limit the evaluator subsamples covariates and chunks targets,
+    which would silently change the consumer's data; Precog rejects instead.
+    """
+    try:
+        from timesfm3.torch.evaluator import _MAX_VARIATES_PER_FORWARD
+    except ImportError:  # pragma: no cover - engine extra not installed
+        return _FALLBACK_MAX_VARIATES
+    return int(_MAX_VARIATES_PER_FORWARD)
+
 
 class TimesFM3Engine:
     """Adapter around ``timesfm3.TimesFM3Evaluator``."""
@@ -42,11 +59,23 @@ class TimesFM3Engine:
             local_files_only=local_only,
         )
         self._evaluator = TimesFM3Evaluator(config)
+        # ``global_context`` is the context length the model actually honors;
+        # anything longer is truncated by the backend.
+        self._max_context = int(self._evaluator.global_context)
+        self._max_variates = effective_max_variates()
         self._ready = True
 
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def max_context(self) -> int:
+        return self._max_context
+
+    @property
+    def max_variates(self) -> int:
+        return self._max_variates
 
     def predict(self, request: ForecastRequest) -> list[SeriesForecast]:
         if request.mode is Mode.multivariate:

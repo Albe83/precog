@@ -202,3 +202,13 @@ All runtime settings use the `PRECOG_` prefix; see
 | `PRECOG_LOG_JSON` | JSON logs | `true` |
 
 An optional `PRECOG_API_KEY` enables bearer auth.
+
+### Effective limits
+
+`PRECOG_MAX_CONTEXT` and `PRECOG_MAX_SERIES` are upper bounds. The API
+advertises (via `/v1/capabilities`) and enforces the intersection with the
+active engine's effective capabilities: the current TimesFM-3 backend honors at
+most 15360 context samples and 32 variates (targets plus covariates) per joint
+forecast. A request above either limit is rejected with `422` before inference
+instead of being silently truncated or subsampled; MCP consumers receive
+`FORECAST_REJECTED`.

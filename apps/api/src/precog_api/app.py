@@ -256,6 +256,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
 
     @app.get("/v1/capabilities", response_model=Capabilities, tags=["forecast"])
     async def capabilities() -> Capabilities:
+        engine = app.state.engine
         return Capabilities(
             model=settings.model_name,
             model_id=settings.model_id,
@@ -264,8 +265,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
             device=settings.device,
             modes=[Mode.univariate, Mode.multivariate],
             max_horizon=settings.max_horizon,
-            max_context=settings.max_context,
+            max_context=_min_limit(settings.max_context, engine.max_context),
             max_series=settings.max_series,
+            max_variates=_min_limit(settings.max_series, engine.max_variates),
             quantile_levels=list(QUANTILE_LEVELS),
             covariates={"univariate": True, "multivariate": True},
             auth_required=bool(settings.api_key),
@@ -288,7 +290,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     async def forecast(
         payload: Annotated[ForecastRequest, Body(openapi_examples=FORECAST_EXAMPLES)],
     ) -> ForecastResponse:
-        _enforce_limits(payload, settings)
+        _enforce_limits(payload, settings, app.state.engine)
         started = time.perf_counter()
         async with app.state.semaphore:
             try:
@@ -332,7 +334,30 @@ def _register_hit(app: FastAPI, settings: Settings, request: Request) -> int:
     return 0
 
 
-def _enforce_limits(payload: ForecastRequest, settings: Settings) -> None:
+def _min_limit(configured: int, engine_limit: int | None) -> int:
+    """Intersect a configured limit with the active engine's effective limit."""
+    return configured if engine_limit is None else min(configured, engine_limit)
+
+
+def _max_unit_variates(payload: ForecastRequest) -> int:
+    """Largest number of variates Precog would send to a single forward pass.
+
+    In multivariate mode all targets and request-level covariates form one joint
+    problem. In univariate mode each series is an independent problem, so the
+    maximum over the per-series target plus its covariates applies.
+    """
+    if payload.mode is Mode.multivariate:
+        return len(payload.series) + len(payload.past_covariates) + len(payload.future_covariates)
+    return max(
+        (
+            1 + len(series.past_covariates) + len(series.future_covariates)
+            for series in payload.series
+        ),
+        default=0,
+    )
+
+
+def _enforce_limits(payload: ForecastRequest, settings: Settings, engine: Engine) -> None:
     if payload.horizon > settings.max_horizon:
         raise HTTPException(
             status_code=422,
@@ -343,11 +368,25 @@ def _enforce_limits(payload: ForecastRequest, settings: Settings) -> None:
             status_code=422,
             detail=f"{len(payload.series)} series exceed max {settings.max_series}",
         )
+    effective_context = _min_limit(settings.max_context, engine.max_context)
     longest = max(s.context_len for s in payload.series)
-    if longest > settings.max_context:
+    if longest > effective_context:
         raise HTTPException(
             status_code=422,
-            detail=f"context length {longest} exceeds max {settings.max_context}",
+            detail=(
+                f"context length {longest} exceeds max {effective_context}; "
+                "Precog never truncates input to fit the model context"
+            ),
+        )
+    effective_variates = _min_limit(settings.max_series, engine.max_variates)
+    variates = _max_unit_variates(payload)
+    if variates > effective_variates:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{variates} variates exceed max {effective_variates}; "
+                "Precog never drops or chunks covariates/targets to fit the model"
+            ),
         )
 
 

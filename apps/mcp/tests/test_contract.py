@@ -187,6 +187,48 @@ def test_quantiles_cross_the_real_api_serialization_boundary() -> None:
     asyncio.run(scenario())
 
 
+def test_runtime_capability_violation_maps_to_forecast_rejected() -> None:
+    from precog_api.app import create_app
+    from precog_api.config import Settings as ApiSettings
+    from precog_api.engine import FakeEngine
+
+    async def scenario():
+        api = create_app(
+            ApiSettings(engine="fake", max_series=64), engine=FakeEngine(max_variates=1)
+        )
+        async with api.router.lifespan_context(api):
+            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            server = create_server(Settings(api_url="http://api.test"), client=client)
+            app = server.streamable_http_app(
+                transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+            )
+            async with app.router.lifespan_context(app):
+                transport = httpx2.ASGITransport(app=app)
+                async with httpx2.AsyncClient(
+                    transport=transport, base_url="http://localhost"
+                ) as http:
+                    async with streamable_http_client("http://localhost/mcp", http_client=http) as (
+                        read,
+                        write,
+                    ):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            return await session.call_tool(
+                                "forecast",
+                                {
+                                    "targets": [
+                                        {"id": "a", "values": [1.0, 2.0, 3.0]},
+                                        {"id": "b", "values": [1.0, 2.0, 3.0]},
+                                    ],
+                                    "horizon": 2,
+                                },
+                            )
+
+    result = asyncio.run(scenario())
+    assert result.is_error is True
+    assert json.loads(result.content[0].text)["code"] == "FORECAST_REJECTED"
+
+
 def test_documented_invalid_length_error_shape() -> None:
     invalid = {
         "targets": [{"id": "cpu_usage", "values": INTEGRATION_CONTEXT}],
