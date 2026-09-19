@@ -35,7 +35,9 @@ export class PrecogClient {
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.maxRetries = options.maxRetries ?? 2;
     this.backoffMs = options.backoffMs ?? 500;
-    this.fetchImpl = options.fetch ?? fetch;
+    // Bind to globalThis: in browsers `fetch` throws "Illegal invocation" if
+    // called with a different `this`.
+    this.fetchImpl = (options.fetch ?? fetch).bind(globalThis) as typeof fetch;
   }
 
   /** Run a synchronous forecast (`POST /v1/forecast`). */
