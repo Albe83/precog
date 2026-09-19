@@ -82,6 +82,8 @@ apps/api            FastAPI service (engine + HTTP)
 apps/mcp            MCP server exposing the forecast tool
 packages/schemas    Shared Pydantic models
 packages/sdk-python Synchronous Python client
+packages/sdk-ts     TypeScript client (browser / Node)
+webui               Minimal web UI built on the TypeScript SDK
 benchmarks          Backtests against real Grafana/Thanos series
 deploy              Dockerfile, compose, Helm chart, Kustomize
 docs                ADRs, deployment, MCP and SDK guides

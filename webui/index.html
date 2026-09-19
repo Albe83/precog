@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Precog forecast</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Precog forecast</h1>
+      <form id="form">
+        <label>
+          API URL (empty = same origin)
+          <input id="apiUrl" type="url" value="" placeholder="same origin" />
+        </label>
+        <label>
+          Mode
+          <select id="mode">
+            <option value="univariate">univariate</option>
+            <option value="multivariate">multivariate</option>
+          </select>
+        </label>
+        <label>
+          Horizon
+          <input id="horizon" type="number" min="1" value="24" />
+        </label>
+        <label class="wide">
+          Target series (comma or space separated)
+          <textarea id="series" rows="3">100, 102, 101, 105, 107, 106, 108, 109, 112, 111, 115, 117</textarea>
+        </label>
+        <button type="submit">Forecast</button>
+      </form>
+      <p id="status">loading…</p>
+      <canvas id="chart" height="320"></canvas>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
