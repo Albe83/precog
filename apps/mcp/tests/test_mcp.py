@@ -32,7 +32,11 @@ def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
             {
                 "id": series_id,
                 "forecast": [1.0] * horizon,
-                "quantiles": [[float(index)] * horizon for index in range(len(QUANTILE_LEVELS))],
+                # Canonical REST orientation: [horizon][quantile].
+                "quantiles": [
+                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
+                    for row in range(horizon)
+                ],
             }
             for series_id in ids
         ],

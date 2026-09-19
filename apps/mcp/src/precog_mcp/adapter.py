@@ -147,11 +147,29 @@ def from_rest_response(request: ForecastToolRequest, payload: Mapping[str, Any])
                     "Precog API omitted requested quantiles",
                     {"target": target.id},
                 )
-            if len(series.quantiles) != len(levels):
+            # The REST contract exposes quantiles as ``[horizon][level]`` (one row
+            # per future step, columns in ``quantile_levels`` order). Validate the
+            # orientation and resolve columns by level rather than by position.
+            rows = series.quantiles
+            if len(rows) != request.horizon:
                 raise _contract_error(
                     "Precog API returned a malformed quantile matrix",
-                    {"target": target.id, "levels": len(levels), "vectors": len(series.quantiles)},
+                    {
+                        "target": target.id,
+                        "expected_rows": request.horizon,
+                        "rows": len(rows),
+                    },
                 )
+            for row in rows:
+                if len(row) != len(levels):
+                    raise _contract_error(
+                        "Precog API returned a malformed quantile matrix",
+                        {
+                            "target": target.id,
+                            "expected_columns": len(levels),
+                            "columns": len(row),
+                        },
+                    )
             for level in request.quantiles:
                 index = _level_index(levels, level)
                 if index is None:
@@ -160,7 +178,7 @@ def from_rest_response(request: ForecastToolRequest, payload: Mapping[str, Any])
                         {"target": target.id, "level": level},
                     )
                 quantiles[quantile_key(level)] = _finite_vector(
-                    series.quantiles[index],
+                    [row[index] for row in rows],
                     request.horizon,
                     label=f"quantile {quantile_key(level)} of '{target.id}'",
                 )

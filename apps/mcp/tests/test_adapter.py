@@ -46,9 +46,11 @@ def _rest_payload(
     for series_id in ids:
         series_quantiles = quantiles
         if series_quantiles is None:
+            # Canonical REST orientation: one row per future step, columns in
+            # ``quantile_levels`` order.
             series_quantiles = [
-                [float(index + offset) for index in range(horizon)]
-                for offset, _ in enumerate(levels)
+                [float(row * 10 + column) for column in range(len(levels))]
+                for row in range(horizon)
             ]
         results.append(
             {
@@ -107,14 +109,25 @@ def test_multiple_targets_map_to_multivariate_with_request_level_covariates() ->
 def test_response_selects_requested_quantiles_by_level() -> None:
     request = _request(quantiles=[0.9, 0.1])
     levels = [0.5, 0.1, 0.9]
-    quantiles = [[10.0, 10.0, 10.0], [1.0, 1.0, 1.0], [9.0, 9.0, 9.0]]
+    # Three horizon rows, columns in ``levels`` order: [q0.5, q0.1, q0.9].
+    quantiles = [[5.0, 1.0, 9.0], [5.0, 2.0, 8.0], [5.0, 3.0, 7.0]]
     result = from_rest_response(
         request, _rest_payload(["cpu_usage"], levels=levels, quantiles=quantiles)
     )
     target = result.targets[0]
     assert list(target.quantiles) == ["0.9", "0.1"]
-    assert target.quantiles["0.9"] == [9.0, 9.0, 9.0]
-    assert target.quantiles["0.1"] == [1.0, 1.0, 1.0]
+    assert target.quantiles["0.9"] == [9.0, 8.0, 7.0]
+    assert target.quantiles["0.1"] == [1.0, 2.0, 3.0]
+
+
+def test_non_square_quantile_matrix_maps_by_level() -> None:
+    # horizon (3) != number of levels (9), so a transposed interpretation would
+    # either fail or silently swap axes.
+    request = _request(quantiles=[0.1, 0.9])
+    payload = _rest_payload(["cpu_usage"], horizon=3)
+    payload["results"][0]["quantiles"] = [[float(row) for _ in range(9)] for row in range(3)]
+    result = from_rest_response(request, payload)
+    assert result.targets[0].quantiles["0.1"] == [0.0, 1.0, 2.0]
 
 
 def test_empty_quantiles_returns_empty_map() -> None:
