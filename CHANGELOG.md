@@ -157,6 +157,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- SDK (TypeScript): new `@precog/sdk` package (`packages/sdk-ts`) with
+  `forecast`/`capabilities`, typed errors and retries; CI typechecks and tests it.
 - Helm: configurable MCP topology — `mcp.deploymentMode` (`sidecar`, default) or
   `deployment` (separate Deployment+Service); optional MCP Service in sidecar
   mode. Migration: existing installs that used the separate `precog-mcp` Service
