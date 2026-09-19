@@ -140,6 +140,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: `extraEnv`, `extraEnvFrom`, `extraVolumes`, `extraVolumeMounts` escape
+  hatches on the API, MCP, download initContainer and Job (e.g. mount a
+  corporate CA and set `SSL_CERT_FILE`, or inject OTel/rate-limit settings).
 - Model cache: revisions can coexist in the HF cache layout; setting
   `PRECOG_PRUNE_OLD_REVISIONS` (Helm `modelCache.pruneOldRevisions`) removes
   snapshots other than the pinned revision and their unreferenced blobs.

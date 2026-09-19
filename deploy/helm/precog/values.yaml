@@ -164,6 +164,23 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Escape hatches applied to the API, MCP, download initContainer and Job.
+# Example: mount a corporate CA and point Python at it:
+#   extraVolumes:
+#     - name: corp-ca
+#       secret: { secretName: corp-ca }
+#   extraVolumeMounts:
+#     - name: corp-ca
+#       mountPath: /etc/ssl/certs/corp-ca.crt
+#       subPath: ca.crt
+#   extraEnv:
+#     - name: SSL_CERT_FILE
+#       value: /etc/ssl/certs/corp-ca.crt
+extraEnv: []
+extraEnvFrom: []
+extraVolumes: []
+extraVolumeMounts: []
+
 # API pod termination grace period; keep it above PRECOG_REQUEST_TIMEOUT_S
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.
 terminationGracePeriodSeconds: 360

@@ -44,6 +44,13 @@ jobs:
           helm template precog "$chart" --set modelCache.persistence.existingClaim=my-cache >/dev/null
           helm template precog "$chart" --set metrics.serviceMonitor.enabled=true >/dev/null
           helm template precog "$chart" --set config.existingSecret=my-secret >/dev/null
+          helm template precog "$chart" \
+            --set extraEnv[0].name=SSL_CERT_FILE \
+            --set extraEnv[0].value=/etc/ssl/certs/corp-ca.crt \
+            --set extraVolumes[0].name=corp-ca \
+            --set extraVolumes[0].secret.secretName=corp-ca \
+            --set extraVolumeMounts[0].name=corp-ca \
+            --set extraVolumeMounts[0].mountPath=/etc/ssl/certs/corp-ca.crt >/dev/null
 
       - name: guard (downloadJob requires a persistent cache)
         run: |
