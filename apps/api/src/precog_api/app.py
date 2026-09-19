@@ -19,7 +19,11 @@ from pydantic import BaseModel
 from precog_api.config import Settings
 from precog_api.engine import Engine, FakeEngine
 from precog_api.execution import ExecutionProblem, ExecutionResult
-from precog_api.mapping import to_execution_problems, to_forecast_response
+from precog_api.mapping import (
+    UnsupportedExecutionOptionError,
+    to_execution_problems,
+    to_forecast_response,
+)
 from precog_api.observability import (
     FORECAST_SERIES,
     INFLIGHT,
@@ -292,7 +296,10 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         payload: Annotated[ForecastRequest, Body(openapi_examples=FORECAST_EXAMPLES)],
     ) -> ForecastResponse:
         _enforce_limits(payload, settings, app.state.engine)
-        problems = to_execution_problems(payload)
+        try:
+            problems = to_execution_problems(payload)
+        except UnsupportedExecutionOptionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         started = time.perf_counter()
         async with app.state.semaphore:
             try:

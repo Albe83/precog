@@ -7,7 +7,11 @@ from precog_api.execution import (
     QuantileExecutionResult,
     TargetExecutionResult,
 )
-from precog_api.mapping import to_execution_problems, to_forecast_response
+from precog_api.mapping import (
+    UnsupportedExecutionOptionError,
+    to_execution_problems,
+    to_forecast_response,
+)
 from precog_schemas import (
     QUANTILE_LEVELS,
     ForecastOptions,
@@ -92,3 +96,46 @@ def test_response_rebuilds_the_legacy_matrix() -> None:
     assert first.forecast == [7.0, 8.0]
     assert first.quantiles is not None
     assert first.quantiles[0] == list(QUANTILE_LEVELS)
+
+
+def test_legacy_symmetric_averaging_is_rejected() -> None:
+    request = ForecastRequest(
+        mode=Mode.univariate,
+        horizon=2,
+        series=[SeriesInput(id="a", target=[1.0, 2.0, 3.0])],
+        options=ForecastOptions(symmetric_averaging=True),
+    )
+
+    with pytest.raises(UnsupportedExecutionOptionError):
+        to_execution_problems(request)
+
+
+def test_legacy_quantile_spread_scale_is_preserved() -> None:
+    request = ForecastRequest(
+        mode=Mode.univariate,
+        horizon=2,
+        series=[SeriesInput(id="a", target=[1.0, 2.0, 3.0])],
+        options=ForecastOptions(quantile_spread_scale=2.0),
+    )
+    quantiles = []
+    for level in QUANTILE_LEVELS:
+        if level < 0.5:
+            values = [-1.0, -1.0]
+        elif level > 0.5:
+            values = [1.0, 1.0]
+        else:
+            values = [0.0, 0.0]
+        quantiles.append(QuantileExecutionResult(level=level, values=values))
+    results = [
+        ExecutionResult(
+            targets=[TargetExecutionResult(id="a", forecast=[0.0, 0.0], quantiles=quantiles)]
+        )
+    ]
+
+    response = to_forecast_response(request, results, model="timesfm-3.0", latency_ms=0.0)
+
+    rows = response.results[0].quantiles
+    assert rows is not None
+    assert rows[0][0] == -2.0
+    assert rows[0][len(QUANTILE_LEVELS) // 2] == 0.0
+    assert rows[0][-1] == 2.0

@@ -23,7 +23,6 @@ from precog_api.execution import (
     QuantileExecutionResult,
     TargetExecutionResult,
 )
-from precog_schemas import QUANTILE_LEVELS
 
 # Used only when the engine extra is unavailable; the live evaluator is the
 # source of truth so capability enforcement cannot drift from the backend.
@@ -73,6 +72,8 @@ class TimesFM3Engine:
         # anything longer is truncated by the backend.
         self._max_context = int(self._evaluator.global_context)
         self._max_variates = effective_max_variates()
+        # The active quantile grid is the model's own, not the REST schema's.
+        self._quantile_levels = tuple(float(level) for level in self._evaluator.config.quantiles)
         self._ready = True
 
     @property
@@ -86,6 +87,11 @@ class TimesFM3Engine:
     @property
     def max_variates(self) -> int:
         return self._max_variates
+
+    @property
+    def quantile_levels(self) -> tuple[float, ...]:
+        """The quantile grid the active model produces, in column order."""
+        return self._quantile_levels
 
     def predict(self, problem: ExecutionProblem) -> ExecutionResult:
         if len(problem.targets) == 1:
@@ -107,7 +113,9 @@ class TimesFM3Engine:
                 return_quantiles=bool(problem.quantiles),
             )
         )
-        return ExecutionResult(targets=[_target_result(target.id, outputs[0], problem)])
+        return ExecutionResult(
+            targets=[_target_result(target.id, outputs[0], problem, self._quantile_levels)]
+        )
 
     def _predict_joint(self, problem: ExecutionProblem) -> ExecutionResult:
         contexts = [np.asarray(target.values, dtype=np.float32) for target in problem.targets]
@@ -130,7 +138,7 @@ class TimesFM3Engine:
         output = outputs[0]
         return ExecutionResult(
             targets=[
-                _target_result(target.id, output, problem, index=index)
+                _target_result(target.id, output, problem, self._quantile_levels, index=index)
                 for index, target in enumerate(problem.targets)
             ]
         )
@@ -170,6 +178,7 @@ def _target_result(
     target_id: str,
     output: Any,
     problem: ExecutionProblem,
+    quantile_levels: tuple[float, ...],
     *,
     index: int | None = None,
 ) -> TargetExecutionResult:
@@ -186,7 +195,7 @@ def _target_result(
         if index is not None:
             matrix = matrix[index]
         for level in problem.quantiles:
-            column = _column_index(level)
+            column = _column_index(level, quantile_levels)
             quantiles.append(
                 QuantileExecutionResult(level=level, values=matrix[:, column].tolist())
             )
@@ -194,9 +203,9 @@ def _target_result(
     return TargetExecutionResult(id=target_id, forecast=point.tolist(), quantiles=quantiles)
 
 
-def _column_index(level: float) -> int:
-    """Map a requested quantile level to its column in the fixed TimesFM grid."""
-    for index, candidate in enumerate(QUANTILE_LEVELS):
+def _column_index(level: float, quantile_levels: tuple[float, ...]) -> int:
+    """Map a requested level to its column in the active model quantile grid."""
+    for index, candidate in enumerate(quantile_levels):
         if abs(candidate - level) < 1e-9:
             return index
     raise ValueError(f"unsupported quantile level {level}")
