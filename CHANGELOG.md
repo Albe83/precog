@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.16.0](https://github.com/Albe83/precog/compare/v0.15.0...v0.16.0) (2026-09-19)
+
+
+### Features
+
+* **mcp:** add semantic backtest tool ([#163](https://github.com/Albe83/precog/issues/163)) ([0e8b92f](https://github.com/Albe83/precog/commit/0e8b92f0cb90128559a23f74635954651426c4f1)), closes [#157](https://github.com/Albe83/precog/issues/157)
+
+
+### Bug Fixes
+
+* **mcp:** clarify coverage quantile fields and ADR wording ([#165](https://github.com/Albe83/precog/issues/165)) ([a245a8d](https://github.com/Albe83/precog/commit/a245a8d4c204dd03cf77224133352ff9cb55250d))
+
 ## [0.15.0](https://github.com/Albe83/precog/compare/v0.14.0...v0.15.0) (2026-09-19)
 
 
