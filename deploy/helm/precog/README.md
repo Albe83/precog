@@ -5,7 +5,8 @@ optional MCP server. Model weights are **not baked into the image**: they are
 downloaded at startup into a cache volume (or pre-seeded), so the images are
 weight-free.
 
-- Chart version: `0.6.0` · app version: `0.6.0`
+- Versioning: the chart `version`/`appVersion` follow the app release (see
+  `CHANGELOG.md`).
 - Images: `ghcr.io/albe83/precog-api`, `ghcr.io/albe83/precog-mcp` (weight-free)
 
 ## Prerequisites
