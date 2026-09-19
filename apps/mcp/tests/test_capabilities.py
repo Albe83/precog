@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from precog_mcp.capabilities import (
     BACKTEST_METRICS,
@@ -68,6 +69,42 @@ def test_limits_from_rest_keeps_public_limits_only() -> None:
     assert limits.max_context_length == 15360
     assert limits.quantile_levels == list(QUANTILE_LEVELS)
     assert set(limits.model_dump()) == {"max_horizon", "max_context_length", "quantile_levels"}
+
+
+def test_limits_from_rest_owns_quantiles_and_ignores_unrelated_fields() -> None:
+    # Divergent quantile levels plus unrelated backend fields must not change
+    # the MCP-advertised quantiles or break reading the runtime limits.
+    payload = _rest_payload(quantile_levels=[0.5], unexpected={"a": 1})
+    payload["engine"] = "some-future-engine"
+    limits = limits_from_rest(payload)
+    assert limits.max_horizon == 1024
+    assert limits.max_context_length == 15360
+    assert limits.quantile_levels == list(QUANTILE_LEVELS)
+
+
+def test_limits_from_rest_requires_the_runtime_limit_fields() -> None:
+    with pytest.raises(ValidationError):
+        limits_from_rest({"quantile_levels": list(QUANTILE_LEVELS)})
+
+
+def test_load_capabilities_needs_only_the_runtime_limit_fields() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"max_horizon": 512, "max_context": 2048})
+
+    caps = asyncio.run(load_capabilities(_client(handler)))
+    assert caps.limits.max_horizon == 512
+    assert caps.limits.max_context_length == 2048
+    assert caps.limits.quantile_levels == list(QUANTILE_LEVELS)
+
+
+def test_load_capabilities_falls_back_when_runtime_limits_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"max_horizon": 512})
+
+    caps = asyncio.run(load_capabilities(_client(handler)))
+    assert caps.limits.max_horizon is None
+    assert caps.limits.max_context_length is None
+    assert caps.limits.quantile_levels == list(QUANTILE_LEVELS)
 
 
 def test_load_capabilities_includes_effective_limits() -> None:

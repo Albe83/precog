@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -30,22 +31,36 @@ class ApiError(RuntimeError):
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 
+def _generic_error(status_code: int) -> str:
+    return f"Precog API error (HTTP {status_code})"
+
+
 def _problem_detail(response: httpx.Response) -> str:
     """Return a sanitized message for an error response.
 
-    Only trust the Precog problem-details media type; never forward an arbitrary
-    (possibly proxied) response body to MCP consumers.
+    Only trust the Precog problem-details media type *and* a JSON object body;
+    never forward an arbitrary (possibly proxied) response to MCP consumers.
+    A non-object JSON value fails closed to the generic message instead of
+    raising.
     """
     media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
     if media_type != PROBLEM_MEDIA_TYPE:
-        return f"Precog API error (HTTP {response.status_code})"
+        return _generic_error(response.status_code)
     try:
         payload = response.json()
     except ValueError:
-        return f"Precog API error (HTTP {response.status_code})"
-    title = payload.get("title") or "error"
-    detail = payload.get("detail")
-    return f"{title}: {detail}" if detail else str(title)
+        return _generic_error(response.status_code)
+    if not isinstance(payload, Mapping):
+        return _generic_error(response.status_code)
+    raw_title = payload.get("title")
+    raw_detail = payload.get("detail")
+    title = raw_title if isinstance(raw_title, str) and raw_title else None
+    detail = raw_detail if isinstance(raw_detail, str) and raw_detail else None
+    if title is None and detail is None:
+        return _generic_error(response.status_code)
+    if detail is not None:
+        return f"{title or 'error'}: {detail}"
+    return title or "error"
 
 
 class ForecastApiClient:
