@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import math
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
 QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+
+
+def _require_finite(values: list[float], label: str, *, allow_interior: bool) -> None:
+    """Reject NaN/Inf; with ``allow_interior`` only interior gaps are accepted."""
+    if all(math.isfinite(value) for value in values):
+        return
+    if allow_interior and math.isfinite(values[0]) and math.isfinite(values[-1]):
+        return
+    raise ValueError(f"{label} contains non-finite values (NaN/Inf)")
 
 
 class Mode(StrEnum):
@@ -38,6 +48,9 @@ class ForecastOptions(BaseModel):
     # above 1 widen the prediction intervals; useful to correct under-coverage
     # on very stable series.
     quantile_spread_scale: float = Field(default=1.0, gt=0, le=10)
+    # Fill interior gaps (NaN) in targets/covariates by linear interpolation.
+    # Leading/trailing NaNs are always rejected.
+    interpolate_missing: bool = False
 
 
 class ForecastRequest(BaseModel):
@@ -82,27 +95,48 @@ class ForecastRequest(BaseModel):
                         f"future covariate '{name}' must match context + horizon "
                         f"({len(values)} != {expected})"
                     )
-            return self
-
-        if self.past_covariates or self.future_covariates:
+        elif self.past_covariates or self.future_covariates:
             raise ValueError(
                 "request-level covariates are only supported in multivariate mode; "
                 "attach covariates to each series in univariate mode"
             )
+        else:
+            for series in self.series:
+                for name, values in series.past_covariates.items():
+                    if len(values) != series.context_len:
+                        raise ValueError(
+                            f"past covariate '{name}' must match context "
+                            f"({len(values)} != {series.context_len})"
+                        )
+                for name, values in series.future_covariates.items():
+                    expected = series.context_len + self.horizon
+                    if len(values) != expected:
+                        raise ValueError(
+                            f"future covariate '{name}' must match context + horizon "
+                            f"({len(values)} != {expected})"
+                        )
+
+        allow_interior = self.options.interpolate_missing
         for series in self.series:
+            _require_finite(
+                series.target, f"target of '{series.id}'", allow_interior=allow_interior
+            )
             for name, values in series.past_covariates.items():
-                if len(values) != series.context_len:
-                    raise ValueError(
-                        f"past covariate '{name}' must match context "
-                        f"({len(values)} != {series.context_len})"
-                    )
+                _require_finite(
+                    values,
+                    f"past covariate '{name}' of '{series.id}'",
+                    allow_interior=allow_interior,
+                )
             for name, values in series.future_covariates.items():
-                expected = series.context_len + self.horizon
-                if len(values) != expected:
-                    raise ValueError(
-                        f"future covariate '{name}' must match context + horizon "
-                        f"({len(values)} != {expected})"
-                    )
+                _require_finite(
+                    values,
+                    f"future covariate '{name}' of '{series.id}'",
+                    allow_interior=allow_interior,
+                )
+        for name, values in self.past_covariates.items():
+            _require_finite(values, f"past covariate '{name}'", allow_interior=allow_interior)
+        for name, values in self.future_covariates.items():
+            _require_finite(values, f"future covariate '{name}'", allow_interior=allow_interior)
         return self
 
 

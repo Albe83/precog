@@ -54,9 +54,10 @@ class TimesFM3Engine:
         return self._predict_univariate(request)
 
     def _predict_univariate(self, request: ForecastRequest) -> list[SeriesForecast]:
-        contexts = [np.asarray(s.target, dtype=np.float32) for s in request.series]
-        past_only = _covariate_list(request, future=False)
-        past_future = _covariate_list(request, future=True)
+        interpolate = request.options.interpolate_missing
+        contexts = [_interpolate(s.target, interpolate) for s in request.series]
+        past_only = _covariate_list(request, future=False, interpolate=interpolate)
+        past_future = _covariate_list(request, future=True, interpolate=interpolate)
         outputs = list(
             self._evaluator.predict_batch(
                 contexts=contexts,
@@ -85,10 +86,11 @@ class TimesFM3Engine:
         return results
 
     def _predict_multivariate(self, request: ForecastRequest) -> list[SeriesForecast]:
-        targets = np.stack([np.asarray(s.target, dtype=np.float32) for s in request.series])
+        interpolate = request.options.interpolate_missing
+        targets = np.stack([_interpolate(s.target, interpolate) for s in request.series])
         kwargs: dict[str, object] = {}
-        past_only = _stacked_covariates(request.past_covariates)
-        past_future = _stacked_covariates(request.future_covariates)
+        past_only = _stacked_covariates(request.past_covariates, interpolate=interpolate)
+        past_future = _stacked_covariates(request.future_covariates, interpolate=interpolate)
         if past_only is not None:
             kwargs["past_only_covariates"] = [past_only]
         if past_future is not None:
@@ -121,7 +123,9 @@ class TimesFM3Engine:
         ]
 
 
-def _covariate_list(request: ForecastRequest, *, future: bool) -> list[np.ndarray | None] | None:
+def _covariate_list(
+    request: ForecastRequest, *, future: bool, interpolate: bool = False
+) -> list[np.ndarray | None] | None:
     """Build the per-series covariate list expected by ``predict_batch``."""
     field = "future_covariates" if future else "past_covariates"
     if not any(getattr(s, field) for s in request.series):
@@ -130,19 +134,31 @@ def _covariate_list(request: ForecastRequest, *, future: bool) -> list[np.ndarra
     for series in request.series:
         channels = getattr(series, field)
         if channels:
-            covariates.append(
-                np.stack([np.asarray(v, dtype=np.float32) for v in channels.values()])
-            )
+            covariates.append(np.stack([_interpolate(v, interpolate) for v in channels.values()]))
         else:
             covariates.append(None)
     return covariates
 
 
-def _stacked_covariates(covariates: Mapping[str, list[float]]) -> np.ndarray | None:
+def _stacked_covariates(
+    covariates: Mapping[str, list[float]], *, interpolate: bool = False
+) -> np.ndarray | None:
     """Stack request-level covariate channels into an ``(n_channels, length)`` array."""
     if not covariates:
         return None
-    return np.stack([np.asarray(values, dtype=np.float32) for values in covariates.values()])
+    return np.stack([_interpolate(values, interpolate) for values in covariates.values()])
+
+
+def _interpolate(values: list[float], enabled: bool) -> np.ndarray:
+    """Return a float32 array, linearly filling interior NaNs when enabled."""
+    array = np.asarray(values, dtype=np.float32)
+    if not enabled or np.isfinite(array).all():
+        return array
+    indices = np.arange(array.size)
+    finite = np.isfinite(array)
+    array = array.copy()
+    array[~finite] = np.interp(indices[~finite], indices[finite], array[finite])
+    return array
 
 
 def _calibrate_quantiles(quantiles: np.ndarray, scale: float) -> np.ndarray:
