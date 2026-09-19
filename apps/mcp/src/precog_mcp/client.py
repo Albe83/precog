@@ -8,7 +8,18 @@ import httpx
 
 
 class ApiError(RuntimeError):
-    """Raised when the Precog API is unreachable or returns an error."""
+    """Raised when the Precog API is unreachable or returns an error.
+
+    ``status`` is the HTTP status code when the API answered, or ``None`` for a
+    connectivity/timeout failure.
+    """
+
+    def __init__(
+        self, message: str, *, status: int | None = None, detail: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.detail = detail
 
 
 def _problem_detail(response: httpx.Response) -> str:
@@ -50,6 +61,13 @@ class ForecastApiClient:
         except httpx.HTTPError as exc:
             raise ApiError(f"cannot reach Precog API: {exc}") from exc
         if response.status_code >= 400:
-            raise ApiError(_problem_detail(response))
-        result: dict[str, Any] = response.json()
+            detail = _problem_detail(response)
+            raise ApiError(detail, status=response.status_code, detail=detail)
+        try:
+            result: dict[str, Any] = response.json()
+        except ValueError as exc:
+            raise ApiError(
+                "Precog API returned a non-JSON response",
+                status=response.status_code,
+            ) from exc
         return result
