@@ -1,6 +1,6 @@
 # ADR 0006 — Precog execution layer and canonical forecast contract
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-19
 
 ## Context
