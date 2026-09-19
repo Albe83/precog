@@ -1,6 +1,6 @@
 [project]
 name = "precog"
-version = "0.10.0"
+version = "0.11.0"
 description = "TimesFM-3 as a service: REST API, MCP server and client SDK."
 readme = "README.md"
 requires-python = ">=3.12"
