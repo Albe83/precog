@@ -15,23 +15,12 @@ from precog_mcp.__main__ import transport_security
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.observability import TOOL_CALLS, metrics_handler, record_tool_call
-from precog_mcp.server import create_server, run_forecast, run_forecast_batch
+from precog_mcp.server import create_server
 from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.unit
 
 FORECAST_ARGS = {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2}
-
-LEGACY_PAYLOAD = {
-    "mode": "univariate",
-    "horizon": 2,
-    "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}],
-    "options": {"return_quantiles": True},
-}
-
-
-def _client(handler) -> ForecastApiClient:
-    return ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
 
 
 def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
@@ -104,6 +93,8 @@ def test_list_tools_exposes_the_new_contract() -> None:
     batch = tools["forecast_batch"]
     assert list(batch.input_schema["properties"]) == ["requests"]
     assert batch.input_schema.get("additionalProperties") is False
+    assert batch.output_schema is not None
+    assert "results" in batch.output_schema["properties"]
 
 
 def test_forecast_success_returns_structured_content() -> None:
@@ -208,59 +199,86 @@ def test_failure_never_returns_nominal_forecast_result() -> None:
     assert result.structured_content is None
 
 
-def test_legacy_forecast_success() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"model": "timesfm-3.0", "results": [{"id": "a"}]})
-
-    result = asyncio.run(run_forecast(_client(handler), LEGACY_PAYLOAD))
-    assert result["model"] == "timesfm-3.0"
-
-
-def test_legacy_api_error_is_mapped() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            422,
-            headers={"content-type": "application/problem+json"},
-            json={"title": "Unprocessable Entity", "detail": "horizon exceeds max"},
-        )
-
-    result = asyncio.run(run_forecast(_client(handler), LEGACY_PAYLOAD))
-    assert "horizon exceeds max" in result["error"]
+def _batch_handler(request: httpx.Request) -> httpx.Response:
+    body = json.loads(request.content)
+    if body["series"][0]["id"] == "bad":
+        return httpx.Response(422, json={"title": "Unprocessable Entity", "detail": "rejected"})
+    return httpx.Response(200, json=_rest_payload([body["series"][0]["id"]], body["horizon"]))
 
 
-def test_legacy_unreachable_api_is_reported() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("connection refused")
-
-    result = asyncio.run(run_forecast(_client(handler), LEGACY_PAYLOAD))
-    assert "cannot reach Precog API" in result["error"]
-
-
-def test_legacy_batch_preserves_order() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"model": "timesfm-3.0"})
-
-    payloads: list[dict[str, Any]] = [
-        {"mode": "univariate", "horizon": 1, "series": [{"id": "a", "target": [1.0]}]},
-        {"mode": "univariate", "horizon": 1, "series": [{"id": "b", "target": [2.0]}]},
-        {"mode": "univariate", "horizon": 1, "series": [{"id": "c", "target": [3.0]}]},
+def test_forecast_batch_preserves_order_and_index() -> None:
+    requests = [
+        {"targets": [{"id": series_id, "values": [1.0, 2.0, 3.0]}], "horizon": 2}
+        for series_id in ("a", "b", "c")
     ]
-    results = asyncio.run(run_forecast_batch(_client(handler), payloads, concurrency=2))
-    assert len(results) == 3
-    assert all(result["model"] == "timesfm-3.0" for result in results)
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast_batch", {"requests": requests})
+
+    result = asyncio.run(_run(_batch_handler, scenario))
+    assert result.is_error is False
+    items = result.structured_content["results"]
+    assert [item["index"] for item in items] == [0, 1, 2]
+    assert [item["ok"] for item in items] == [True, True, True]
+    assert [item["result"]["targets"][0]["id"] for item in items] == ["a", "b", "c"]
 
 
-def test_legacy_batch_maps_per_item_errors() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"model": "timesfm-3.0"})
-
-    payloads: list[dict[str, Any]] = [
-        {"mode": "univariate", "horizon": 1, "series": [{"id": "a", "target": [1.0]}]},
-        {"mode": "univariate", "series": []},
+def test_forecast_batch_partial_failure_does_not_cancel_siblings() -> None:
+    requests = [
+        {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+        {"targets": [{"id": "c", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
     ]
-    results = asyncio.run(run_forecast_batch(_client(handler), payloads))
-    assert results[0]["model"] == "timesfm-3.0"
-    assert results[1]["error"] == "invalid forecast request"
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast_batch", {"requests": requests})
+
+    result = asyncio.run(_run(_batch_handler, scenario))
+    assert result.is_error is False
+    items = result.structured_content["results"]
+    assert [item["ok"] for item in items] == [True, False, True]
+    assert items[1]["error"]["code"] == "FORECAST_REJECTED"
+
+
+def test_forecast_batch_all_failures_is_still_a_successful_call() -> None:
+    requests = [
+        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+    ]
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast_batch", {"requests": requests})
+
+    result = asyncio.run(_run(_batch_handler, scenario))
+    assert result.is_error is False
+    assert all(item["ok"] is False for item in result.structured_content["results"])
+
+
+def test_forecast_batch_empty_is_a_tool_error() -> None:
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast_batch", {"requests": []})
+
+    result = asyncio.run(_run(_batch_handler, scenario))
+    assert result.is_error is True
+    assert _envelope(result)["code"] == "INVALID_REQUEST"
+
+
+def test_forecast_batch_oversize_is_a_tool_error() -> None:
+    requests = [
+        {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+        {"targets": [{"id": "b", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
+    ]
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("forecast_batch", {"requests": requests})
+
+    result = asyncio.run(
+        _run(_batch_handler, scenario, Settings(api_url="http://api.test", mcp_batch_max=1))
+    )
+    assert result.is_error is True
+    payload = _envelope(result)
+    assert payload["code"] == "INVALID_REQUEST"
+    assert payload["details"]["max"] == 1
 
 
 def test_metrics_count_success_and_error_protocol_calls() -> None:

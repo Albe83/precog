@@ -6,7 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from precog_mcp.models import (
+    ForecastBatchResult,
     ForecastResult,
+    ForecastToolError,
     ForecastToolRequest,
     ModelProvenance,
     TargetForecast,
@@ -206,3 +208,33 @@ def test_result_rejects_non_finite_forecast() -> None:
             targets=[TargetForecast(id="a", forecast=[math.inf])],
             model=ModelProvenance(id="timesfm-3.0"),
         )
+
+
+def test_batch_result_discriminates_variants() -> None:
+    result = ForecastResult(
+        horizon=1,
+        targets=[TargetForecast(id="a", forecast=[1.0])],
+        model=ModelProvenance(id="timesfm-3.0"),
+    )
+    batch = ForecastBatchResult.model_validate(
+        {
+            "results": [
+                {"index": 0, "ok": True, "result": result.model_dump(mode="json")},
+                {
+                    "index": 1,
+                    "ok": False,
+                    "error": {"code": "INVALID_REQUEST", "message": "bad"},
+                },
+            ]
+        }
+    )
+    assert batch.results[0].ok is True
+    assert batch.results[1].ok is False
+    schema = ForecastBatchResult.model_json_schema()
+    assert "discriminator" in str(schema)
+
+
+def test_batch_failure_error_details_optional() -> None:
+    error = ForecastToolError(code="LENGTH_MISMATCH", message="bad", details={"a": 1})
+    assert error.details == {"a": 1}
+    assert ForecastToolError(code="X", message="y").details is None
