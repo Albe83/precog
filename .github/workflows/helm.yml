@@ -51,6 +51,16 @@ jobs:
             --set extraVolumes[0].secret.secretName=corp-ca \
             --set extraVolumeMounts[0].name=corp-ca \
             --set extraVolumeMounts[0].mountPath=/etc/ssl/certs/corp-ca.crt >/dev/null
+          helm template precog "$chart" \
+            --set imagePullSecrets[0].name=regcred \
+            --set podLabels.team=ml \
+            --set priorityClassName=high \
+            --set nodeSelector.disktype=ssd \
+            --set service.annotations.foo=bar \
+            --set topologySpreadConstraints[0].maxSkew=1 \
+            --set topologySpreadConstraints[0].topologyKey=kubernetes.io/hostname \
+            --set topologySpreadConstraints[0].whenUnsatisfiable=ScheduleAnyway \
+            --set mcp.enabled=true >/dev/null
 
       - name: guard (downloadJob requires a persistent cache)
         run: |
