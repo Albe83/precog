@@ -4,16 +4,16 @@
  "horizon": 24,
  "metrics": {
   "False": {
-   "mae": 393647117.48229176,
+   "mae": 393647127.807155,
    "coverage_80": 87.109375,
-   "pinball": 234997063.50364015
+   "pinball": 234997069.47019607
   },
   "True": {
-   "mae": 436911501.5876838,
+   "mae": 436911498.2393756,
    "coverage_80": 87.23958333333333,
-   "pinball": 255909337.7828745
+   "pinball": 255909339.33024386
   }
  },
- "median_forecast_mean_abs_difference": 68670164.95406774,
- "median_forecast_max_abs_difference": 1403229525.3333333
+ "median_forecast_mean_abs_difference": 68670165.58012533,
+ "median_forecast_max_abs_difference": 1403229568.0
 }
