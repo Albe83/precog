@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.12.0](https://github.com/Albe83/precog/compare/v0.11.0...v0.12.0) (2026-09-19)
+
+
+### Features
+
+* **deploy:** add configurable MCP topology (sidecar default) ([#128](https://github.com/Albe83/precog/issues/128)) ([f34404a](https://github.com/Albe83/precog/commit/f34404a8e69e100e033f0670048e52df406c557f))
+* **deploy:** add extraEnv/extraVolumes escape hatches ([#121](https://github.com/Albe83/precog/issues/121)) ([cdc631b](https://github.com/Albe83/precog/commit/cdc631bfaeb4ef638692f4023c980e4e112a6193))
+* **deploy:** add helm test for the MCP server ([#125](https://github.com/Albe83/precog/issues/125)) ([dc6f0f6](https://github.com/Albe83/precog/commit/dc6f0f6fdf2983bfbc0ddf83068a53b4ffc07c4d))
+* **deploy:** add optional Gateway API HTTPRoute ([#127](https://github.com/Albe83/precog/issues/127)) ([b04610a](https://github.com/Albe83/precog/commit/b04610a89004d57a50948e77e1d8dac6260d711d))
+* **deploy:** add optional NetworkPolicy templates ([#126](https://github.com/Albe83/precog/issues/126)) ([b70540b](https://github.com/Albe83/precog/commit/b70540b8e26f060227b58a0f1b88c662a2f464a2))
+* **deploy:** add workload options and MCP parity ([#124](https://github.com/Albe83/precog/issues/124)) ([9489e71](https://github.com/Albe83/precog/commit/9489e7171bf519643894de80a2da331eedea8916))
+
+
+### Documentation
+
+* **deploy:** clarify ServiceMonitor covers API and MCP metrics ([#123](https://github.com/Albe83/precog/issues/123)) ([816a570](https://github.com/Albe83/precog/commit/816a5707a43bf34abf5bb1474ec5163b174a2aac))
+
 ## [0.11.0](https://github.com/Albe83/precog/compare/v0.10.0...v0.11.0) (2026-09-19)
 
 
