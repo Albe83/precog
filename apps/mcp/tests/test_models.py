@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from precog_mcp.models import (
+    BacktestToolRequest,
     ForecastResult,
     ForecastToolRequest,
     ModelProvenance,
@@ -206,3 +207,75 @@ def test_result_rejects_non_finite_forecast() -> None:
             targets=[TargetForecast(id="a", forecast=[math.inf])],
             model=ModelProvenance(id="timesfm-3.0"),
         )
+
+
+BACKTEST_MINIMAL = {
+    "targets": [{"id": "a", "values": [1.0, 2.0, 3.0, 4.0, 5.0]}],
+    "horizon": 2,
+}
+
+
+def test_backtest_defaults_and_context_length() -> None:
+    request = BacktestToolRequest.model_validate(BACKTEST_MINIMAL)
+    assert request.past_covariates == []
+    assert request.known_future_covariates == []
+    assert request.quantiles == [0.1, 0.9]
+    assert request.context_length == 3
+
+
+def test_backtest_target_must_exceed_horizon() -> None:
+    with pytest.raises(ValidationError, match="more values than the horizon"):
+        BacktestToolRequest.model_validate(
+            {"targets": [{"id": "a", "values": [1.0, 2.0]}], "horizon": 2}
+        )
+    with pytest.raises(ValidationError, match="more values than the horizon"):
+        BacktestToolRequest.model_validate(
+            {"targets": [{"id": "a", "values": [1.0]}], "horizon": 2}
+        )
+
+
+def test_backtest_target_lengths_must_match() -> None:
+    payload = {
+        "targets": [
+            {"id": "a", "values": [1.0, 2.0, 3.0, 4.0]},
+            {"id": "b", "values": [1.0, 2.0, 3.0]},
+        ],
+        "horizon": 2,
+    }
+    with pytest.raises(ValidationError, match="same number of values"):
+        BacktestToolRequest.model_validate(payload)
+
+
+def test_backtest_ids_must_be_globally_unique() -> None:
+    payload = {
+        **BACKTEST_MINIMAL,
+        "past_covariates": [{"id": "a", "values": [1.0, 2.0, 3.0, 4.0, 5.0]}],
+    }
+    with pytest.raises(ValidationError, match="globally unique"):
+        BacktestToolRequest.model_validate(payload)
+
+
+def test_backtest_covariates_must_span_the_full_timeline() -> None:
+    payload = {
+        **BACKTEST_MINIMAL,
+        "past_covariates": [{"id": "p", "values": [1.0, 2.0, 3.0, 4.0]}],
+    }
+    with pytest.raises(ValidationError, match="full target timeline"):
+        BacktestToolRequest.model_validate(payload)
+
+    payload = {
+        **BACKTEST_MINIMAL,
+        "known_future_covariates": [{"id": "k", "values": [0.0, 0.0, 0.0]}],
+    }
+    with pytest.raises(ValidationError, match="full target timeline"):
+        BacktestToolRequest.model_validate(payload)
+
+
+def test_backtest_quantiles_share_the_forecast_validation() -> None:
+    with pytest.raises(ValidationError, match="unsupported quantile"):
+        BacktestToolRequest.model_validate({**BACKTEST_MINIMAL, "quantiles": [0.25]})
+
+
+def test_backtest_unknown_field_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BacktestToolRequest.model_validate({**BACKTEST_MINIMAL, "mode": "univariate"})

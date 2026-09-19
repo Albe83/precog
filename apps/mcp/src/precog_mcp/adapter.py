@@ -16,9 +16,16 @@ from pydantic import ValidationError
 
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.models import (
+    BacktestMetrics,
+    BacktestResult,
+    BacktestToolRequest,
     ForecastResult,
     ForecastToolRequest,
+    HistoricalSeries,
+    IntervalCoverage,
+    KnownFutureSeries,
     ModelProvenance,
+    TargetBacktest,
     TargetForecast,
     quantile_key,
 )
@@ -218,6 +225,131 @@ async def execute_forecast(
     return from_rest_response(request, payload)
 
 
+def backtest_to_forecast_request(request: BacktestToolRequest) -> ForecastToolRequest:
+    """Split a backtest at the holdout cutoff and build the forecast problem.
+
+    The head of every series becomes the context; the tail is held out. A
+    known-future covariate's tail is forwarded as already-known future values,
+    which is the anti-leakage assumption the caller is responsible for.
+    """
+    horizon = request.horizon
+    targets = [
+        HistoricalSeries(id=series.id, values=series.values[:-horizon])
+        for series in request.targets
+    ]
+    past = [
+        HistoricalSeries(id=series.id, values=series.values[:-horizon])
+        for series in request.past_covariates
+    ]
+    known = [
+        KnownFutureSeries(
+            id=series.id,
+            history=series.values[:-horizon],
+            future=series.values[-horizon:],
+        )
+        for series in request.known_future_covariates
+    ]
+    return ForecastToolRequest(
+        targets=targets,
+        horizon=horizon,
+        past_covariates=past,
+        known_future_covariates=known,
+        quantiles=list(request.quantiles),
+    )
+
+
+def evaluate_backtest(request: BacktestToolRequest, result: ForecastResult) -> BacktestResult:
+    """Compare a forecast against the held-out actuals and compute metrics."""
+    if result.horizon != request.horizon:
+        raise _contract_error(
+            "Precog API returned an unexpected horizon",
+            {"expected": request.horizon, "received": result.horizon},
+        )
+    expected_ids = [target.id for target in request.targets]
+    result_ids = [target.id for target in result.targets]
+    if result_ids != expected_ids:
+        raise _contract_error(
+            "Precog API returned unexpected target ids",
+            {"expected": expected_ids, "received": result_ids},
+        )
+
+    evaluated: list[TargetBacktest] = []
+    for source, predicted in zip(request.targets, result.targets, strict=True):
+        actual = list(source.values[-request.horizon :])
+        forecast = _finite_vector(
+            predicted.forecast, request.horizon, label=f"forecast of '{source.id}'"
+        )
+        evaluated.append(
+            TargetBacktest(
+                id=source.id,
+                actual=actual,
+                forecast=forecast,
+                metrics=_metrics(actual, forecast, predicted.quantiles),
+            )
+        )
+    return BacktestResult(
+        horizon=request.horizon,
+        targets=evaluated,
+        model=result.model,
+        warnings=list(result.warnings),
+    )
+
+
+async def execute_backtest(
+    client: ForecastApiClient, request: BacktestToolRequest
+) -> BacktestResult:
+    """Run one backtest through the same semantic forecast path as ``forecast``."""
+    result = await execute_forecast(client, backtest_to_forecast_request(request))
+    return evaluate_backtest(request, result)
+
+
+def _metrics(
+    actual: list[float],
+    forecast: list[float],
+    quantiles: Mapping[str, list[float]],
+) -> BacktestMetrics:
+    errors = [a - f for a, f in zip(actual, forecast, strict=True)]
+    count = len(errors)
+    mae = sum(abs(error) for error in errors) / count
+    rmse = math.sqrt(sum(error * error for error in errors) / count)
+    return BacktestMetrics(
+        mae=mae,
+        rmse=rmse,
+        smape=_smape(actual, forecast),
+        coverage=_coverage(actual, quantiles),
+    )
+
+
+def _smape(actual: list[float], forecast: list[float]) -> float:
+    """Symmetric MAPE as a percentage.
+
+    ``100 / n * sum(2 * |a - f| / (|a| + |f|))``. When ``|a| + |f| == 0`` the
+    term is defined as ``0`` (perfect agreement on a zero value).
+    """
+    total = 0.0
+    for a, f in zip(actual, forecast, strict=True):
+        denominator = abs(a) + abs(f)
+        if denominator == 0.0:
+            continue
+        total += 2.0 * abs(a - f) / denominator
+    return 100.0 * total / len(actual)
+
+
+def _coverage(actual: list[float], quantiles: Mapping[str, list[float]]) -> IntervalCoverage | None:
+    """Coverage of the widest requested interval that brackets the median."""
+    levels = sorted(float(key) for key in quantiles)
+    lower_levels = [level for level in levels if level < 0.5]
+    upper_levels = [level for level in levels if level > 0.5]
+    if not lower_levels or not upper_levels:
+        return None
+    lower = min(lower_levels)
+    upper = max(upper_levels)
+    below = quantiles[quantile_key(lower)]
+    above = quantiles[quantile_key(upper)]
+    inside = sum(1 for a, low, high in zip(actual, below, above, strict=True) if low <= a <= high)
+    return IntervalCoverage(lower=lower, upper=upper, percent=100.0 * inside / len(actual))
+
+
 def _finite_vector(values: list[float], expected: int, *, label: str) -> list[float]:
     if len(values) != expected:
         raise _contract_error(
@@ -243,6 +375,9 @@ def _contract_error(message: str, details: dict[str, Any] | None = None) -> Fore
 __all__ = [
     "ErrorCode",
     "ForecastAdapterError",
+    "backtest_to_forecast_request",
+    "evaluate_backtest",
+    "execute_backtest",
     "execute_forecast",
     "from_rest_response",
     "map_api_error",

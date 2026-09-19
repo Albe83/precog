@@ -70,7 +70,7 @@ def _model_engine() -> Any:
     )
 
 
-async def _call_forecast(args: dict[str, Any]):
+async def _call_tool(tool_name: str, args: dict[str, Any]):
     from precog_api.app import create_app
     from precog_api.config import Settings as ApiSettings
 
@@ -93,7 +93,15 @@ async def _call_forecast(args: dict[str, Any]):
                 ):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
-                        return await session.call_tool("forecast", args)
+                        return await session.call_tool(tool_name, args)
+
+
+def _call_forecast(args: dict[str, Any]):
+    return _call_tool("forecast", args)
+
+
+def _call_backtest(args: dict[str, Any]):
+    return _call_tool("backtest", args)
 
 
 def _envelope(result: Any) -> dict[str, Any]:
@@ -213,5 +221,54 @@ def test_effective_capability_violation_maps_to_forecast_rejected() -> None:
     assert _envelope(result)["code"] == "FORECAST_REJECTED"
 
 
-def test_semantic_backtest_scenario_is_tracked_separately() -> None:
-    pytest.skip("semantic backtest is tracked by #157 and not part of this suite yet")
+def test_backtest_single_target_single_window() -> None:
+    values = _series(0, 100, CONTEXT + HORIZON)
+    result = asyncio.run(
+        _call_backtest(
+            {
+                "targets": [{"id": "a", "values": values}],
+                "horizon": HORIZON,
+                "quantiles": [0.1, 0.9],
+            }
+        )
+    )
+    assert result.is_error is False
+    structured = result.structured_content
+    assert structured["horizon"] == HORIZON
+    assert structured["model"]["id"] == "timesfm-3.0"
+    target = structured["targets"][0]
+    assert target["actual"] == pytest.approx(values[-HORIZON:])
+    assert len(target["forecast"]) == HORIZON
+    assert all(math.isfinite(value) for value in target["forecast"])
+    metrics = target["metrics"]
+    for name in ("mae", "rmse", "smape"):
+        assert math.isfinite(metrics[name])
+        assert metrics[name] >= 0.0
+    assert metrics["coverage"]["lower"] == 0.1
+    assert metrics["coverage"]["upper"] == 0.9
+    assert 0.0 <= metrics["coverage"]["percent"] <= 100.0
+
+
+def test_backtest_with_known_future_covariate() -> None:
+    values = _series(0, 100, CONTEXT + HORIZON)
+    covariate = _series(3, 0, CONTEXT + HORIZON)
+    result = asyncio.run(
+        _call_backtest(
+            {
+                "targets": [{"id": "a", "values": values}],
+                "horizon": HORIZON,
+                "known_future_covariates": [{"id": "promo", "values": covariate}],
+            }
+        )
+    )
+    assert result.is_error is False
+    assert result.structured_content["targets"][0]["actual"] == pytest.approx(values[-HORIZON:])
+
+
+def test_backtest_holdout_not_shorter_than_series_is_rejected() -> None:
+    values = _series(0, 100, CONTEXT + HORIZON)
+    result = asyncio.run(
+        _call_backtest({"targets": [{"id": "a", "values": values}], "horizon": len(values)})
+    )
+    assert result.is_error is True
+    assert _envelope(result)["code"] == "INVALID_REQUEST"

@@ -21,6 +21,7 @@ from precog_schemas import QUANTILE_LEVELS
 pytestmark = pytest.mark.unit
 
 FORECAST_ARGS = {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2}
+BACKTEST_ARGS = {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2}
 
 
 def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
@@ -94,6 +95,67 @@ def test_list_tools_exposes_the_new_contract() -> None:
     for removed in ("mode", "series", "return_quantiles"):
         assert removed not in forecast.input_schema["properties"]
     assert "forecast_batch" not in tools
+
+
+def test_list_tools_exposes_backtest() -> None:
+    async def scenario(session: ClientSession) -> dict[str, Any]:
+        tools = await session.list_tools()
+        return {tool.name: tool for tool in tools.tools}
+
+    tools = asyncio.run(_run(_ok_handler, scenario))
+    backtest = tools["backtest"]
+    assert list(backtest.input_schema["properties"]) == [
+        "targets",
+        "horizon",
+        "past_covariates",
+        "known_future_covariates",
+        "quantiles",
+    ]
+    assert backtest.input_schema["required"] == ["targets", "horizon"]
+    assert backtest.input_schema.get("additionalProperties") is False
+    assert backtest.output_schema is not None
+    assert list(backtest.output_schema["properties"]) == ["horizon", "targets", "model", "warnings"]
+
+
+def test_backtest_success_returns_actuals_and_metrics() -> None:
+    async def scenario(session: ClientSession):
+        return await session.call_tool("backtest", BACKTEST_ARGS)
+
+    result = asyncio.run(_run(_ok_handler, scenario))
+    assert result.is_error is False
+    structured = result.structured_content
+    assert structured["horizon"] == 2
+    target = structured["targets"][0]
+    assert target["id"] == "a"
+    assert target["actual"] == [2.0, 3.0]
+    assert target["forecast"] == [1.0, 1.0]
+    assert target["metrics"]["mae"] == 1.5
+    assert target["metrics"]["coverage"] is not None
+    assert target["metrics"]["coverage"]["percent"] == 100.0
+
+
+def test_backtest_holdout_not_shorter_than_series_is_rejected() -> None:
+    args = {"targets": [{"id": "a", "values": [1.0, 2.0]}], "horizon": 2}
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("backtest", args)
+
+    result = asyncio.run(_run(_ok_handler, scenario))
+    assert result.is_error is True
+    payload = _envelope(result)
+    assert payload["code"] == "INVALID_REQUEST"
+    assert payload["details"]["errors"]
+
+
+def test_backtest_removed_field_is_rejected() -> None:
+    async def scenario(session: ClientSession):
+        return await session.call_tool("backtest", {**BACKTEST_ARGS, "mode": "univariate"})
+
+    result = asyncio.run(_run(_ok_handler, scenario))
+    assert result.is_error is True
+    payload = _envelope(result)
+    assert payload["code"] == "INVALID_REQUEST"
+    assert "mode" in payload["details"]["unknown"]
 
 
 def test_forecast_success_returns_structured_content() -> None:
