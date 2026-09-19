@@ -8,7 +8,11 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field, ValidationError
 
-from precog_mcp.adapter import ForecastAdapterError, execute_forecast
+from precog_mcp.adapter import (
+    ForecastAdapterError,
+    execute_backtest,
+    execute_forecast,
+)
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.errors import (
@@ -18,6 +22,8 @@ from precog_mcp.errors import (
     validation_error_details,
 )
 from precog_mcp.models import (
+    BacktestResult,
+    BacktestToolRequest,
     ForecastResult,
     ForecastToolRequest,
     HistoricalSeries,
@@ -40,6 +46,22 @@ TOOL_DESCRIPTION = (
     "input data.\n\n"
     "The result contains a point forecast for each target and, when requested, "
     "probabilistic quantiles representing forecast uncertainty."
+)
+
+BACKTEST_TOOL_DESCRIPTION = (
+    "Backtest a Precog forecast against a held-out tail of the provided history.\n\n"
+    "Provide the complete historical values for each target and a horizon. The last "
+    "`horizon` values of every target are held out as ground truth; Precog forecasts "
+    "the preceding context through the same semantic path as `forecast` and reports "
+    "the prediction next to the actual values.\n\n"
+    "Covariates must be aligned to the full target timeline. Historical-only "
+    "covariates are split at the same cutoff as the targets. Known-future covariates "
+    "may use values from the holdout interval; the caller is responsible for ensuring "
+    "they would genuinely have been known at the forecast cutoff. Precog assumes they "
+    "were and does not verify it.\n\n"
+    "The result reports objective error metrics (MAE and RMSE in the target's units, "
+    "sMAPE as a percentage) and interval coverage when the requested quantiles bracket "
+    "the median. It is a single window, not a rolling backtest."
 )
 
 
@@ -87,6 +109,33 @@ def create_server(
             ) from exc
         try:
             return await execute_forecast(client, request)
+        except ForecastAdapterError as exc:
+            raise ToolError(adapter_error_envelope(exc)) from exc
+
+    @server.tool(name="backtest", description=BACKTEST_TOOL_DESCRIPTION)
+    async def backtest(
+        targets: list[HistoricalSeries],
+        horizon: int,
+        past_covariates: Annotated[list[HistoricalSeries], Field(default_factory=list)],
+        known_future_covariates: Annotated[list[HistoricalSeries], Field(default_factory=list)],
+        quantiles: Annotated[list[float], Field(default_factory=lambda: [0.1, 0.9])],
+    ) -> BacktestResult:
+        try:
+            request = BacktestToolRequest(
+                targets=targets,
+                horizon=horizon,
+                past_covariates=past_covariates,
+                known_future_covariates=known_future_covariates,
+                quantiles=quantiles,
+            )
+        except ValidationError as exc:
+            raise ToolError(
+                error_envelope(
+                    "INVALID_REQUEST", "invalid backtest request", validation_error_details(exc)
+                )
+            ) from exc
+        try:
+            return await execute_backtest(client, request)
         except ForecastAdapterError as exc:
             raise ToolError(adapter_error_envelope(exc)) from exc
 

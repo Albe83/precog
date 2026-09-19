@@ -21,10 +21,12 @@ INTERNAL_ERROR_MESSAGE = "Precog MCP encountered an unexpected internal error"
 # Public argument names per tool, used to reject removed/unknown fields as
 # additional properties even though the SDK's generated argument model ignores
 # them by default.
+_SERIES_ARGUMENTS: frozenset[str] = frozenset(
+    {"targets", "horizon", "past_covariates", "known_future_covariates", "quantiles"}
+)
 _ALLOWED_ARGUMENTS: dict[str, frozenset[str]] = {
-    "forecast": frozenset(
-        {"targets", "horizon", "past_covariates", "known_future_covariates", "quantiles"}
-    ),
+    "forecast": _SERIES_ARGUMENTS,
+    "backtest": _SERIES_ARGUMENTS,
 }
 
 

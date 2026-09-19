@@ -27,7 +27,7 @@ The MCP consumer provides already-prepared numeric time-series data and asks
 Precog to perform semantic operations such as:
 
 - forecast a set of related targets;
-- (later) backtest a forecast against a held-out tail;
+- backtest a forecast against a held-out tail;
 - discover the semantic capabilities Precog supports.
 
 The MCP server **may translate and orchestrate** calls to the current Precog

@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 import httpx2
+import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.transport_security import TransportSecuritySettings
@@ -107,6 +108,44 @@ def test_registered_forecast_schema_matches_documented_contract() -> None:
     assert "forecast_batch" not in {tool.name for tool in tools.tools}
 
 
+def test_registered_backtest_schema_matches_documented_contract() -> None:
+    async def scenario(session: ClientSession):
+        return await session.list_tools()
+
+    tools = asyncio.run(_run(scenario))
+    backtest = next(tool for tool in tools.tools if tool.name == "backtest")
+    assert backtest.input_schema["required"] == ["targets", "horizon"]
+    assert list(backtest.input_schema["properties"]) == [
+        "targets",
+        "horizon",
+        "past_covariates",
+        "known_future_covariates",
+        "quantiles",
+    ]
+    assert backtest.input_schema["additionalProperties"] is False
+    assert list(backtest.output_schema["properties"]) == ["horizon", "targets", "model", "warnings"]
+    assert backtest.output_schema["required"] == ["horizon", "targets", "model"]
+
+
+def test_documented_backtest_payload_is_valid() -> None:
+    payload = {
+        "targets": [{"id": "cpu_usage", "values": [*INTEGRATION_CONTEXT, 45.2, 47.8, 48.1]}],
+        "horizon": 3,
+    }
+
+    async def scenario(session: ClientSession):
+        return await session.call_tool("backtest", payload)
+
+    result = asyncio.run(_run(scenario))
+    assert result.is_error is False
+    structured = result.structured_content
+    assert structured["horizon"] == 3
+    target = structured["targets"][0]
+    assert target["actual"] == [45.2, 47.8, 48.1]
+    assert target["forecast"] == [1.0, 1.0, 1.0]
+    assert target["metrics"]["mae"] == pytest.approx(46.03333333333333)
+
+
 def test_documented_minimal_payload_is_valid() -> None:
     async def scenario(session: ClientSession):
         return await session.call_tool("forecast", MINIMAL_REQUEST)
@@ -171,6 +210,50 @@ def test_quantiles_cross_the_real_api_serialization_boundary() -> None:
                             # FakeEngine repeats the last value for every step.
                             assert quantiles["0.1"] == [3.0, 3.0, 3.0]
                             assert quantiles["0.9"] == [3.0, 3.0, 3.0]
+
+    asyncio.run(scenario())
+
+
+def test_backtest_crosses_the_real_api_serialization_boundary() -> None:
+    """FakeEngine -> real Precog API -> MCP client -> split -> metrics."""
+    from precog_api.app import create_app
+    from precog_api.config import Settings as ApiSettings
+    from precog_api.engine import FakeEngine
+
+    async def scenario() -> None:
+        api = create_app(ApiSettings(engine="fake"), engine=FakeEngine())
+        async with api.router.lifespan_context(api):
+            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            server = create_server(Settings(api_url="http://api.test"), client=client)
+            app = server.streamable_http_app(
+                transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+            )
+            async with app.router.lifespan_context(app):
+                transport = httpx2.ASGITransport(app=app)
+                async with httpx2.AsyncClient(
+                    transport=transport, base_url="http://localhost"
+                ) as http:
+                    async with streamable_http_client("http://localhost/mcp", http_client=http) as (
+                        read,
+                        write,
+                    ):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            result = await session.call_tool(
+                                "backtest",
+                                {
+                                    "targets": [{"id": "a", "values": [1.0, 2.0, 3.0, 4.0, 5.0]}],
+                                    "horizon": 2,
+                                },
+                            )
+                            assert result.is_error is False
+                            target = result.structured_content["targets"][0]
+                            assert target["actual"] == [4.0, 5.0]
+                            # FakeEngine repeats the last context value (3.0).
+                            assert target["forecast"] == [3.0, 3.0]
+                            assert target["metrics"]["mae"] == pytest.approx(1.5)
+                            # The neutral FakeEngine interval cannot cover the holdout.
+                            assert target["metrics"]["coverage"]["percent"] == 0.0
 
     asyncio.run(scenario())
 

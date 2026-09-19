@@ -1,6 +1,6 @@
 # MCP server
 
-`apps/mcp` exposes Precog forecasts as an MCP tool. It talks to the REST API
+`apps/mcp` exposes Precog forecasting as MCP tools. It talks to the REST API
 over HTTP and contains no model weights.
 
 The architectural role of the MCP server — the agent-facing semantic interface,
@@ -114,6 +114,141 @@ A successful call returns MCP structured content:
 - `model` reports the forecasting engine actually used.
 - `warnings` lists non-fatal conditions. It does not hide destructive or
   semantic changes to the input; invalid input fails instead.
+
+## Tool: `backtest`
+
+Retrospectively evaluate a Precog forecast against a held-out tail of the
+provided history. This is a single window, not a rolling or walk-forward
+backtest.
+
+| Argument | Type | Required | Notes |
+| -------- | ---- | -------- | ----- |
+| `targets` | array of `{id, values}` | yes | Complete historical series; the last `horizon` values are held out |
+| `horizon` | integer ≥ 1 | yes | Number of holdout steps and forecast steps |
+| `past_covariates` | array of `{id, values}` | no | Full-timeline series; only the context segment is used |
+| `known_future_covariates` | array of `{id, values}` | no | Full-timeline series; the holdout segment is used as known-future input |
+| `quantiles` | array of levels from `0.1`…`0.9` | no | Default `[0.1, 0.9]`; used for interval coverage (and not otherwise returned) |
+
+### Holdout split
+
+`backtest` takes the **complete** historical series. Precog holds out the last
+`horizon` values of every target and forecasts the preceding context through the
+same semantic path used by `forecast`:
+
+```
+full historical target
+┌────────────────────────────┬──────────┐
+│          context           │ holdout  │
+└────────────────────────────┴──────────┘
+                             ← horizon →
+```
+
+`len(targets[].values)` must be strictly greater than `horizon` so the remaining
+context is valid for a normal forecast. All targets must share the same full
+length.
+
+### Covariates and the holdout cutoff
+
+Covariates are aligned to the **full** target timeline (the same length as
+`targets[].values`) and are split at the same cutoff:
+
+- `past_covariates`: only the context segment is used; the holdout segment is
+  ignored.
+- `known_future_covariates`: the context segment becomes history and the holdout
+  segment becomes the already-known future values.
+
+```
+TARGET                  ------------------------|----------
+PAST COVARIATE          ------------------------|..........  (holdout ignored)
+KNOWN FUTURE COVARIATE  ------------------------|----------  (holdout used as future)
+                             context           |  holdout
+```
+
+**Anti-leakage is the caller's responsibility.** A covariate presented as
+known-future must genuinely have been known at the forecast cutoff. Precog
+assumes it and does not verify or infer that fact. Feeding holdout information as
+“known future” when it would not have been known produces an optimistic backtest.
+
+### Metrics
+
+For each target the result contains the held-out `actual` values, the `forecast`
+for the same steps, and objective metrics in the target's units:
+
+- **MAE** — mean absolute error: `mean(|actual - forecast|)`.
+- **RMSE** — root mean squared error: `sqrt(mean((actual - forecast)²))`.
+- **sMAPE** — symmetric mean absolute percentage error:
+  `100 / n · Σ 2·|actual - forecast| / (|actual| + |forecast|)`, where a term with
+  `|actual| + |forecast| = 0` contributes `0`. The value is a percentage in
+  `[0, 200]`.
+
+When the requested quantiles bracket the median (at least one level `< 0.5` and
+one `> 0.5`), the result also reports `coverage` for the widest such interval:
+the percentage of holdout steps whose actual value lies inside
+`[lower_quantile, upper_quantile]`. With the default `[0.1, 0.9]` that is the
+empirical 80% interval coverage of this single window. It is a measurement, not a
+calibration guarantee.
+
+### Backtest result
+
+```json
+{
+  "horizon": 3,
+  "targets": [
+    {
+      "id": "cpu_usage",
+      "actual": [45.2, 47.8, 48.1],
+      "forecast": [44.9, 46.5, 47.2],
+      "metrics": {
+        "mae": 0.9,
+        "rmse": 1.03,
+        "smape": 2.0,
+        "coverage": { "lower": 0.1, "upper": 0.9, "percent": 66.66666666666666 }
+      }
+    }
+  ],
+  "model": { "id": "timesfm-3.0" },
+  "warnings": []
+}
+```
+
+`coverage` is `null` when the requested quantiles do not identify both a lower
+and an upper side of the median (for example `quantiles: []` or `[0.5]`).
+
+### Backtest validation rules
+
+- At least one target; every `targets[].values` must be longer than `horizon`.
+- All targets must share the same full length.
+- Every `past_covariates[].values` and `known_future_covariates[].values` must be
+  aligned to the full target timeline.
+- IDs must be globally unique across targets and covariates.
+- Finite-value and quantile rules are identical to `forecast`.
+
+Invalid requests fail with the same stable error envelope. A backend capability
+rejection (for example a context longer than the model supports) maps to
+`FORECAST_REJECTED`; failures are never returned as a successful result
+containing nominal error fields.
+
+### Backtest example
+
+```json
+{
+  "targets": [
+    { "id": "cpu_usage", "values": [31.2, 32.8, 35.1, 37.4, 41.2, 43.7, 45.2, 47.8, 48.1] }
+  ],
+  "horizon": 3,
+  "past_covariates": [
+    { "id": "request_rate", "values": [1200, 1250, 1410, 1530, 1710, 1800, 1850, 1900, 1950] }
+  ],
+  "known_future_covariates": [
+    { "id": "maintenance_window", "values": [0, 0, 0, 0, 0, 0, 0, 1, 1] }
+  ],
+  "quantiles": [0.1, 0.9]
+}
+```
+
+Here the last three target values are the holdout, the last three
+`request_rate` values are ignored, and `maintenance_window`'s last three values
+are forwarded as known-future inputs.
 
 ## Errors
 
