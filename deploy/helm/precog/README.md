@@ -277,7 +277,7 @@ helm uninstall precog -n precog
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `tests.enabled` | bool | `true` | Render the `helm test` connectivity pod. |
-| `metrics.serviceMonitor.enabled` | bool | `false` | Create a ServiceMonitor for the API `/metrics`. |
+| `metrics.serviceMonitor.enabled` | bool | `false` | Create a ServiceMonitor scraping the API and MCP `/metrics` endpoints. |
 | `metrics.serviceMonitor.interval` | string | `30s` | Scrape interval. |
 | `metrics.serviceMonitor.scrapeTimeout` | string | `10s` | Scrape timeout. |
 | `metrics.serviceMonitor.path` | string | `/metrics` | Metrics path. |

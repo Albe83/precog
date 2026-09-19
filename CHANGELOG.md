@@ -140,6 +140,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: the optional ServiceMonitor scrapes both the API and MCP `/metrics`
+  endpoints (the selector matches both Services); value comment and docs
+  clarified.
 - Helm: `extraEnv`, `extraEnvFrom`, `extraVolumes`, `extraVolumeMounts` escape
   hatches on the API, MCP, download initContainer and Job (e.g. mount a
   corporate CA and set `SSL_CERT_FILE`, or inject OTel/rate-limit settings).
