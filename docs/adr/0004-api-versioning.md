@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-18
+- Amended: 2026-09-19 (pre-release scope, see [ADR 0006](0006-execution-layer.md))
 
 ## Context
 
@@ -28,6 +29,18 @@ without breaking consumers.
   - Where practical, return `Deprecation`/`Sunset` response headers.
 - **Clients**: the Python SDK pins to a major version and treats new response
   fields as optional.
+
+## Pre-release scope
+
+The compatibility commitment above applies to **released** contracts. Precog has
+not been released yet, so the current `/v1` contract is not yet a stability
+guarantee.
+
+[ADR 0006](0006-execution-layer.md) performs a one-time reset of `/v1` in place
+while introducing the execution layer. That reset is **not** a breaking change
+that requires `/v2`, and no backward-compatibility machinery is built for the
+pre-release contract. The rules in this ADR take effect once the redesigned
+execution contract becomes the released baseline.
 
 ## Consequences
 

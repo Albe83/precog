@@ -1,6 +1,6 @@
 # ADR 0006 — Precog execution layer and canonical forecast contract
 
-- Status: accepted
+- Status: proposed
 - Date: 2026-09-19
 
 ## Context
@@ -84,11 +84,37 @@ do. This ADR does **not** introduce:
 There is currently only TimesFM-3. The goal is a clean Precog execution
 boundary, not a generic forecasting framework.
 
+### 4. Non-negativity is an explicit engine choice
+
+The canonical problem has no field for domain-specific output constraints.
+`make_positive` is therefore **not** a request field, and Precog must not
+silently impose a non-negativity assumption on data it does not understand.
+
+`TimesFM3Evaluator` enables `make_positive=True` as a benchmark default while the
+base forecaster defaults to `False`. Today Precog inherits the evaluator default
+without declaring it. Phase 2 must make the choice explicit in `TimesFM3Engine`
+(set `make_positive=False`, no silent clamping) rather than inherit it; if
+non-negativity is ever wanted for a specific domain, it becomes an explicit,
+documented policy, not an evaluator side effect.
+
+### 5. Pre-release reset and relationship to ADR 0004
+
+Phase 2 is a **one-time pre-release reset of `/v1` in place**. Precog has never
+been released, so there is no `/v2` and no backward-compatibility machinery for
+the current REST contract.
+
+[ADR 0004](0004-api-versioning.md) (versioning and deprecation) applies **after**
+the redesigned execution contract becomes the new baseline: from that point the
+`/v1` rules (additive changes within a major, breaking changes under a new major,
+deprecation windows) take effect. ADR 0004 is amended to scope its compatibility
+commitment to released contracts so the two ADRs do not contradict each other.
+
 ## Canonical execution request
 
-The following is the accepted starting point for the canonical problem. It is a
-Precog-level problem, not the REST wire schema; the wire contract may mirror it
-closely but is free to evolve additively under [ADR 0004](0004-api-versioning.md).
+The following is the proposed starting point for the canonical problem. It is a
+Precog-level problem, not the REST wire schema. This PR defines it but does not
+implement the wire contract; once the redesigned contract becomes the baseline,
+its evolution follows [ADR 0004](0004-api-versioning.md).
 
 ```json
 {
@@ -179,13 +205,14 @@ here.
 
 ```json
 {
-  "horizon": 24,
+  "horizon": 2,
   "targets": [
     {
       "id": "cpu",
       "forecast": [1.1, 1.2],
       "quantiles": [
         { "level": 0.1, "values": [1.0, 1.05] },
+        { "level": 0.5, "values": [1.1, 1.2] },
         { "level": 0.9, "values": [1.2, 1.35] }
       ]
     }
@@ -201,11 +228,23 @@ here.
 | `targets[].id` | Target identity, in request order |
 | `targets[].forecast` | Point forecast (median quantile), length `horizon` |
 | `targets[].quantiles` | One `{level, values}` entry per requested level; `[]` for point-only |
-| `model` | Runtime provenance: model id and resolved revision |
-| `usage` | Execution metadata: `latency_ms`, `context_len` |
+| `model.id` | Configured model id |
+| `model.revision` | Configured/known model revision when available, `null` otherwise |
+| `usage` | Execution metadata added by the API: `latency_ms`, `context_len` |
 
 Design notes:
 
+- **The response envelope is assembled at the API layer, not by the engine.**
+  `ExecutionResult` (the Engine protocol return value) carries only the
+  normalized predictions — one entry per target with `id`, `forecast` and
+  `quantiles`. The API adds the REST envelope: `horizon` from the accepted
+  problem, `model` provenance from configuration, and `usage` from measured
+  request timing and the problem's context length. This keeps `ExecutionResult`
+  a single-role type and avoids recreating the multi-role `ForecastRequest`
+  problem.
+- **`model.revision` is not resolved.** It reports the configured revision when
+  one is set and stays `null` otherwise. Resolving an actual HF commit SHA or
+  local checkpoint revision is additional work and is not promised here.
 - **Quantiles are explicit and per target**, as a list of `{level, values}`.
   JSON object keys must be strings, so a level-keyed mapping forces a formatting
   convention (`"0.1"`) and positional matrices force a documented orientation.
@@ -245,6 +284,10 @@ class Engine(Protocol):
 
 - Readiness, effective context limit, effective variate limit, prediction from
   the canonical problem and a normalized result are the whole contract.
+- `ExecutionResult` is the **normalized engine prediction only**: an ordered
+  list of per-target results (`id`, point `forecast`, `quantiles`). It carries
+  no latency, no HTTP envelope and no provenance; those are added by the API
+  (see *Canonical execution response*).
 - `max_horizon` is **not** an engine property; it stays a Precog policy/limit
   checked at the API boundary and advertised by execution capabilities.
 - No `max_series`/`max_targets` engine property is added: the variate limit
@@ -269,7 +312,8 @@ All backend shape translation lives inside `TimesFM3Engine`:
 | Median column | `median_quantile_index` from the model config |
 | `symmetric_averaging` | engine configuration (was a request option) |
 | Calibration (`quantile_spread_scale`) | calibration/post-processing step, not the execution problem (deferred, see below) |
-| `make_positive`, `sort_quantiles`, `use_znorm`, `padding_mode` | evaluator/engine defaults |
+| `make_positive` | explicit engine choice, not inherited from the evaluator benchmark default (Phase 2 sets it to `False`) |
+| `sort_quantiles`, `use_znorm`, `padding_mode` | evaluator/engine defaults |
 
 The MCP anti-corruption adapter (`precog_mcp.adapter`) then only maps the
 semantic request to a canonical execution problem and the canonical result to
@@ -289,12 +333,13 @@ GET /v1/capabilities    = execution/runtime capabilities
 | Field | Notes |
 | ----- | ----- |
 | `engine` | Active engine id (`fake`, `timesfm3`) |
-| `model.id`, `model.revision` | Runtime model provenance |
+| `model.id` | Configured model id |
+| `model.revision` | Configured/known model revision when available, `null` otherwise |
 | `device` | Execution device (`cpu` today; parametric via `PRECOG_DEVICE`) |
 | `limits.max_horizon` | Configured max horizon |
 | `limits.max_context` | Effective max context (min of config and engine) |
 | `limits.max_variates` | Effective variates per forward pass (min of config and engine), `null` if unbounded |
-| `limits.max_targets` | Configured max targets per problem |
+| `limits.max_targets` | Configured policy ceiling on targets per problem; the executable maximum is `min(max_targets, max_variates)` once covariates are present |
 | `quantile_levels` | Levels the engine can produce (fixed grid today) |
 | `features` | Execution-level support flags (point/probabilistic, past covariates, known-future covariates, joint targets) |
 | `auth_required` | Whether a bearer token is required |
@@ -331,8 +376,9 @@ SDK migration is not implemented in this issue.
 - The execution response is self-describing and free of matrix-orientation
   coupling.
 - Removing request-level TimesFM knobs means the engine must own sensible
-  defaults; a behavior decision (and benchmark) is required for
-  `symmetric_averaging` and calibration before implementation.
+  defaults. Non-negativity is decided explicitly (`make_positive=False`); a
+  behavior decision (and benchmark) is still required for `symmetric_averaging`
+  and calibration before implementation.
 - The contract is deliberately narrow: independent per-series batches are not
   representable, and adding them later is an explicit new decision.
 
@@ -358,8 +404,9 @@ SDK migration is not implemented in this issue.
    behavior: the API rejects such problems instead of adapting them.
 5. **Non-declared model effects.** `make_positive` (clamps negative forecasts
    to zero) and `sort_quantiles` are evaluator defaults, not request fields.
-   They are execution configuration; if they need to be controllable, they
-   belong in engine configuration, not the canonical problem.
+   `make_positive` is a domain assumption Precog must not apply silently, so
+   Phase 2 sets it explicitly to `False` in `TimesFM3Engine` (see Decision 4);
+   `sort_quantiles` stays an execution default.
 6. **NaN handling.** Although the evaluator has internal missing-value handling
    (`padding_mode="none"`, `use_znorm=false`), Precog rejects non-finite input
    per the Phase 1 boundary. The canonical contract exposes no interpolation
