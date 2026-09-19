@@ -4,5 +4,5 @@ description: >-
   TimesFM-3 zero-shot forecasting REST API (CPU). Weights are downloaded at
   runtime into a cache volume.
 type: application
-version: 0.17.2
-appVersion: 0.17.2
+version: 0.17.3
+appVersion: 0.17.3
