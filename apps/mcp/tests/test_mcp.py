@@ -297,22 +297,6 @@ def test_metrics_count_success_and_error_protocol_calls() -> None:
     assert TOOL_CALLS.labels("forecast", "error")._value.get() == before_err + 1
 
 
-def test_metrics_count_success_and_error_protocol_calls() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=_rest_payload(["a"]))
-
-    before_ok = TOOL_CALLS.labels("forecast", "ok")._value.get()
-    before_err = TOOL_CALLS.labels("forecast", "error")._value.get()
-
-    async def scenario(session: ClientSession) -> None:
-        await session.call_tool("forecast", FORECAST_ARGS)
-        await session.call_tool("forecast", {**FORECAST_ARGS, "mode": "univariate"})
-
-    asyncio.run(_run(handler, scenario))
-    assert TOOL_CALLS.labels("forecast", "ok")._value.get() == before_ok + 1
-    assert TOOL_CALLS.labels("forecast", "error")._value.get() == before_err + 1
-
-
 def test_transport_security_defaults_to_localhost() -> None:
     security = transport_security("")
     assert security.enable_dns_rebinding_protection is True
