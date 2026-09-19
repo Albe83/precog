@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     preload: Literal["auto", "always", "never"] = "auto"
     preload_retries: int = 3
     model_required: bool = True
+    prune_old_revisions: bool = False
     hf_token: str | None = None
     per_core_batch_size: int = 16
     torch_threads: int = 0
