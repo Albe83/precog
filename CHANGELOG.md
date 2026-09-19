@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.14.0](https://github.com/Albe83/precog/compare/v0.13.1...v0.14.0) (2026-09-19)
+
+
+### Features
+
+* **mcp:** adapt the public contract to the REST API ([#138](https://github.com/Albe83/precog/issues/138)) ([#144](https://github.com/Albe83/precog/issues/144)) ([c45eab1](https://github.com/Albe83/precog/commit/c45eab1bef88137d30274c7c18394f0e17f887b6))
+* **mcp:** align forecast_batch with the new contract ([#140](https://github.com/Albe83/precog/issues/140)) ([#146](https://github.com/Albe83/precog/issues/146)) ([6ae85a3](https://github.com/Albe83/precog/commit/6ae85a3ac88c94044b9e8e3fdd787bd9ff77140e))
+* **mcp:** define consumer-facing forecast contract models ([#143](https://github.com/Albe83/precog/issues/143)) ([d936d06](https://github.com/Albe83/precog/commit/d936d068cfc990dd400dd0054cd56bd12fa418e2))
+* **mcp:** structured forecast tool and real tool errors ([#139](https://github.com/Albe83/precog/issues/139)) ([#145](https://github.com/Albe83/precog/issues/145)) ([7432a09](https://github.com/Albe83/precog/commit/7432a09f9993ae8ca13395f1e6bcfeed8542b542))
+
+
+### Bug Fixes
+
+* address forecast redesign review follow-ups ([#152](https://github.com/Albe83/precog/issues/152)) ([0218be2](https://github.com/Albe83/precog/commit/0218be285a336d04525075a309beb4faceec4afe))
+* **docs:** avoid a hardcoded chart version in the README ([#154](https://github.com/Albe83/precog/issues/154)) ([7300071](https://github.com/Albe83/precog/commit/73000715e6344920c12d84bad23a05e4825a4c8e))
+
+
+### Documentation
+
+* **mcp:** publish the redesigned forecast contract and migration guide ([#141](https://github.com/Albe83/precog/issues/141)) ([#147](https://github.com/Albe83/precog/issues/147)) ([33a1d61](https://github.com/Albe83/precog/commit/33a1d614d142e336a0d734d1d8bb5e021df4c704))
+
 ## [0.13.1](https://github.com/Albe83/precog/compare/v0.13.0...v0.13.1) (2026-09-19)
 
 
