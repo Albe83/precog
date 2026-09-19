@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import time
-from typing import Annotated, Any
+from typing import Annotated
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field, ValidationError
 
 from precog_mcp.adapter import ForecastAdapterError, execute_forecast
-from precog_mcp.client import ApiError, ForecastApiClient
+from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.errors import (
     ToolErrorMiddleware,
@@ -20,14 +19,17 @@ from precog_mcp.errors import (
     validation_error_details,
 )
 from precog_mcp.models import (
+    BatchFailure,
+    BatchSuccess,
+    ForecastBatchResult,
     ForecastResult,
+    ForecastToolError,
     ForecastToolRequest,
     HistoricalSeries,
     KnownFutureSeries,
 )
-from precog_mcp.observability import metrics_handler, record_tool_call
+from precog_mcp.observability import metrics_handler
 from precog_mcp.tracing import setup_tracing
-from precog_schemas import ForecastRequest
 
 TOOL_DESCRIPTION = (
     "Forecast future values for one or more related numeric time series.\n\n"
@@ -46,39 +48,42 @@ TOOL_DESCRIPTION = (
 )
 
 BATCH_TOOL_DESCRIPTION = (
-    "Forecast several requests in one call. `requests` is a list of forecast "
-    "payloads, each shaped like the `forecast` tool arguments (mode, horizon, "
-    "series, optional past_covariates/future_covariates). Returns one result per "
-    "request (a forecast object or an `error`), preserving order."
+    "Forecast several independent requests in one call. Each item in `requests` is a "
+    "complete `forecast` request. Related series that must be forecast jointly belong "
+    "together as multiple `targets` inside a single request, not as separate batch "
+    "items.\n\n"
+    "Returns one ordered result per request. Each item is either a success carrying a "
+    "forecast result or a typed failure; a failed item does not cancel the others. "
+    "Batch size and concurrency are bounded by PRECOG_MCP_BATCH_MAX and "
+    "PRECOG_MCP_BATCH_CONCURRENCY."
 )
-
-
-async def run_forecast(client: ForecastApiClient, payload: dict[str, Any]) -> dict[str, Any]:
-    """Validate a legacy forecast payload and call the API, mapping errors to a dict."""
-    try:
-        ForecastRequest.model_validate(payload)
-    except ValidationError as exc:
-        return {"error": "invalid forecast request", "detail": exc.errors(include_url=False)}
-    try:
-        return await client.forecast(payload)
-    except ApiError as exc:
-        return {"error": str(exc)}
 
 
 async def run_forecast_batch(
     client: ForecastApiClient,
-    payloads: list[dict[str, Any]],
+    requests: list[ForecastToolRequest],
     *,
     concurrency: int = 4,
-) -> list[dict[str, Any]]:
-    """Forecast several legacy payloads concurrently, preserving order."""
+) -> list[BatchSuccess | BatchFailure]:
+    """Forecast several independent requests concurrently, preserving input order."""
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
-    async def one(payload: dict[str, Any]) -> dict[str, Any]:
+    async def one(index: int, request: ForecastToolRequest) -> BatchSuccess | BatchFailure:
         async with semaphore:
-            return await run_forecast(client, payload)
+            try:
+                result = await execute_forecast(client, request)
+            except ForecastAdapterError as exc:
+                return BatchFailure(
+                    index=index,
+                    ok=False,
+                    error=ForecastToolError(
+                        code=exc.code.value, message=exc.message, details=exc.details
+                    ),
+                )
+            return BatchSuccess(index=index, ok=True, result=result)
 
-    return list(await asyncio.gather(*(one(payload) for payload in payloads)))
+    tasks = (one(index, request) for index, request in enumerate(requests))
+    return list(await asyncio.gather(*tasks))
 
 
 def create_server(
@@ -129,19 +134,22 @@ def create_server(
             raise ToolError(adapter_error_envelope(exc)) from exc
 
     @server.tool(name="forecast_batch", description=BATCH_TOOL_DESCRIPTION)
-    async def forecast_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
-        started = time.perf_counter()
+    async def forecast_batch(
+        requests: Annotated[list[ForecastToolRequest], Field(min_length=1)],
+    ) -> ForecastBatchResult:
         if not requests:
-            result: dict[str, Any] = {"error": "requests must not be empty"}
-        elif len(requests) > settings.mcp_batch_max:
-            result = {"error": f"too many requests ({len(requests)} > {settings.mcp_batch_max})"}
-        else:
-            results = await run_forecast_batch(
-                client, requests, concurrency=settings.mcp_batch_concurrency
+            raise ToolError(error_envelope("INVALID_REQUEST", "requests must not be empty"))
+        if len(requests) > settings.mcp_batch_max:
+            raise ToolError(
+                error_envelope(
+                    "INVALID_REQUEST",
+                    f"too many requests ({len(requests)} > {settings.mcp_batch_max})",
+                    {"max": settings.mcp_batch_max, "received": len(requests)},
+                )
             )
-            result = {"count": len(results), "results": results}
-        status = "error" if "error" in result else "ok"
-        record_tool_call("forecast_batch", status, time.perf_counter() - started)
-        return result
+        results = await run_forecast_batch(
+            client, requests, concurrency=settings.mcp_batch_concurrency
+        )
+        return ForecastBatchResult(results=list(results))
 
     return server
