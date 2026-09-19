@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.13.1](https://github.com/Albe83/precog/compare/v0.13.0...v0.13.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **sdk:** bind fetch to globalThis for browsers ([#133](https://github.com/Albe83/precog/issues/133)) ([be1d9bb](https://github.com/Albe83/precog/commit/be1d9bbeccb8d200c8120e852d2f082edea755b4))
+
 ## [0.13.0](https://github.com/Albe83/precog/compare/v0.12.0...v0.13.0) (2026-09-19)
 
 
