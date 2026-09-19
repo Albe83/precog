@@ -200,6 +200,24 @@ def test_probabilistic_forecast_requested_quantiles() -> None:
         assert quantiles["0.1"][step] <= quantiles["0.5"][step] <= quantiles["0.9"][step]
 
 
+def test_point_forecast_matches_requested_median() -> None:
+    """The public point forecast is the median for the current backend."""
+    scenarios: list[list[dict[str, Any]]] = [
+        [{"id": "a", "values": _series(0, 100, CONTEXT)}],
+        [
+            {"id": "a", "values": _series(0, 100, CONTEXT)},
+            {"id": "b", "values": _series(1, 80, CONTEXT)},
+        ],
+    ]
+    for targets in scenarios:
+        result = asyncio.run(
+            _call_forecast({"targets": targets, "horizon": HORIZON, "quantiles": [0.1, 0.5, 0.9]})
+        )
+        structured = _assert_result_shape(result, [target["id"] for target in targets])
+        for target in structured["targets"]:
+            assert target["forecast"] == target["quantiles"]["0.5"]
+
+
 def test_invalid_semantic_input_is_rejected() -> None:
     result = asyncio.run(
         _call_forecast(
@@ -247,6 +265,35 @@ def test_backtest_single_target_single_window() -> None:
     assert metrics["coverage"]["lower_quantile"] == 0.1
     assert metrics["coverage"]["upper_quantile"] == 0.9
     assert 0.0 <= metrics["coverage"]["percent"] <= 100.0
+
+
+def test_backtest_multiple_targets_with_covariate() -> None:
+    targets = [
+        {"id": "a", "values": _series(0, 100, CONTEXT + HORIZON)},
+        {"id": "b", "values": _series(1, 80, CONTEXT + HORIZON)},
+    ]
+    result = asyncio.run(
+        _call_backtest(
+            {
+                "targets": targets,
+                "horizon": HORIZON,
+                "past_covariates": [{"id": "promo", "values": _series(2, 0, CONTEXT + HORIZON)}],
+                "quantiles": [0.1, 0.9],
+            }
+        )
+    )
+    assert result.is_error is False
+    structured = result.structured_content
+    assert [target["id"] for target in structured["targets"]] == ["a", "b"]
+    for evaluated, source in zip(structured["targets"], targets, strict=True):
+        assert evaluated["actual"] == pytest.approx(source["values"][-HORIZON:])
+        assert len(evaluated["forecast"]) == HORIZON
+        assert all(math.isfinite(value) for value in evaluated["forecast"])
+        metrics = evaluated["metrics"]
+        for name in ("mae", "rmse", "smape"):
+            assert math.isfinite(metrics[name])
+            assert metrics[name] >= 0.0
+        assert metrics["coverage"] is not None
 
 
 def test_backtest_with_known_future_covariate() -> None:
