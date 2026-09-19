@@ -157,6 +157,17 @@ Restrict network access (default-deny ingress unless rules are given):
 When egress is restricted, allow the API to reach `huggingface.co` (and DNS) on
 first start unless the cache volume is pre-seeded.
 
+Publish through the Gateway API (needs the CRDs; attach to an existing Gateway):
+
+```bash
+--set httpRoute.enabled=true \
+--set httpRoute.parentRefs[0].name=private-corporate \
+--set httpRoute.parentRefs[0].namespace=gateway-system \
+--set httpRoute.hostnames[0]=precog.example.com \
+--set httpRoute.api.enabled=true \
+--set mcp.enabled=true
+```
+
 ## Access
 
 ```bash
@@ -315,6 +326,20 @@ example Argo CD) will not run them — set `tests.enabled=false` there.
 | `networkPolicy.api.egress` | list | `[]` | API egress rules (allow `huggingface.co` + DNS when restricted). |
 | `networkPolicy.mcp.ingress` | list | `[]` | MCP ingress rules. |
 | `networkPolicy.mcp.egress` | list | `[]` | MCP egress rules. |
+
+### HTTPRoute (`httpRoute`, disabled by default)
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `httpRoute.enabled` | bool | `false` | Render an HTTPRoute (requires Gateway API CRDs). |
+| `httpRoute.parentRefs` | list | `[]` | Target Gateway refs (required when enabled). |
+| `httpRoute.hostnames` | list | `[]` | Hostnames. |
+| `httpRoute.annotations` | map | `{}` | Annotations. |
+| `httpRoute.labels` | map | `{}` | Extra labels. |
+| `httpRoute.api.enabled` | bool | `false` | Publish the REST API. |
+| `httpRoute.api.path` / `pathType` | string | `/` / `PathPrefix` | API match. |
+| `httpRoute.mcp.enabled` | bool | `true` | Publish the MCP endpoint at `/mcp`. |
+| `httpRoute.mcp.path` / `pathType` | string | `/mcp` / `PathPrefix` | MCP match. |
 
 ## Notes
 

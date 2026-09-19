@@ -164,6 +164,35 @@
     "priorityClassName": { "type": "string" },
     "topologySpreadConstraints": { "type": "array" },
     "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
+    "httpRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "annotations": { "type": "object" },
+        "labels": { "type": "object" },
+        "parentRefs": { "type": "array" },
+        "hostnames": { "type": "array" },
+        "api": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "path": { "type": "string" },
+            "pathType": { "type": "string" }
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "path": { "type": "string" },
+            "pathType": { "type": "string" }
+          }
+        }
+      }
+    },
     "networkPolicy": {
       "type": "object",
       "additionalProperties": false,

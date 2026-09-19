@@ -191,6 +191,23 @@ topologySpreadConstraints: []
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.
 terminationGracePeriodSeconds: 360
 
+# Optional HTTPRoute (Gateway API), disabled by default. Requires the Gateway
+# API CRDs; set parentRefs to the target Gateway. By default it publishes the
+# MCP endpoint at /mcp; enable the API rule to publish the REST API too.
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  hostnames: []
+  api:
+    enabled: false
+    path: /
+    pathType: PathPrefix
+  mcp:
+    enabled: true
+    path: /mcp
+    pathType: PathPrefix
+
 # Optional NetworkPolicies (disabled by default). When enabled each workload
 # gets a policy that is default-deny for ingress unless rules are provided.
 # Provide the callers (e.g. a gateway) and, for the API, egress to
