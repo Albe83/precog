@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.17.2](https://github.com/Albe83/precog/compare/v0.17.1...v0.17.2) (2026-09-19)
+
+
+### Documentation
+
+* **api:** define the execution layer and canonical forecast contract ([#174](https://github.com/Albe83/precog/issues/174)) ([23da21b](https://github.com/Albe83/precog/commit/23da21bf0d58cb56bdd3924142a2100620f234a8))
+
 ## [0.17.1](https://github.com/Albe83/precog/compare/v0.17.0...v0.17.1) (2026-09-19)
 
 
