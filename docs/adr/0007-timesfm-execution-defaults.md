@@ -1,6 +1,6 @@
 # ADR 0007 — TimesFM execution defaults and calibration ownership
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-19
 
 ## Context
@@ -25,7 +25,9 @@ Today the engine forwards `use_symmetric_averaging` from the request (default
 This preserves the current Precog default (no behavior change). It was
 re-evaluated against the real TimesFM-3 path with
 `benchmarks/symmetric_averaging.py` (32 windows, context 168, horizon 24, the
-Grafana/Thanos series in `benchmarks/data/complex_series.json`):
+Grafana/Thanos series in `benchmarks/data/complex_series.json`). The benchmark
+drives `TimesFM3Evaluator` directly with the frozen Phase-2 defaults of
+Decision 3, so the evidence does not depend on inherited evaluator behavior:
 
 | `use_symmetric_averaging` | MAE | 80% coverage | pinball |
 | ------------------------- | --- | ------------ | ------- |
@@ -42,11 +44,13 @@ there is no evidence to change the default. Evidence:
 **not** apply calibration by default in Phase 2.
 
 `scale = 1.0` (today's default) is a no-op, so removing the field changes no
-current behavior. The existing calibration sweep
-(`benchmarks/data/calibration.json`) found the no-calibration setting has the
-lowest pinball loss (1.88e7 vs 1.94e7 at `1.5`) and 78.3% coverage against a
-nominal 80%, so no default correction is warranted. If calibration is ever
-needed it becomes an explicit engine/deployment configuration or a dedicated
+current behavior. The calibration sweep (`benchmarks/calibration.py`) was re-run
+under the same frozen Phase-2 defaults (`make_positive=False`, explicit
+evaluator arguments) and stored in `benchmarks/data/calibration.json`; the
+result is materially unchanged: the no-calibration setting has the lowest
+pinball loss (1.88e7 vs 1.94e7 at `1.5`) and 78.3% coverage against a nominal
+80%, so no default correction is warranted. If calibration is ever needed it
+becomes an explicit engine/deployment configuration or a dedicated
 post-processing stage; no calibration framework is built now.
 
 ### 3. Evaluator arguments set explicitly
@@ -56,7 +60,7 @@ relying on evaluator defaults:
 
 | Argument | Value | Rationale |
 | -------- | ----- | --------- |
-| `return_quantiles` | `True` | The engine owns the fixed quantile grid; the API slices requested levels |
+| `return_quantiles` | `bool(problem.quantiles)` | Return the backend quantile grid only when probabilistic output is requested; the API slices requested levels |
 | `use_symmetric_averaging` | `False` | Decision 1 |
 | `make_positive` | `False` | No silent domain-specific non-negativity (ADR 0006) |
 | `sort_quantiles` | `True` | Monotonic quantiles are a normalization invariant |

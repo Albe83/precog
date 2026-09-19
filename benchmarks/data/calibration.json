@@ -5,27 +5,27 @@
   {
    "scale": 0.8,
    "coverage_80_mean": 67.3,
-   "pinball_mean": 19082346.4806
+   "pinball_mean": 19082418.1232
   },
   {
    "scale": 1.0,
    "coverage_80_mean": 78.3,
-   "pinball_mean": 18798890.2591
+   "pinball_mean": 18798898.0664
   },
   {
    "scale": 1.5,
    "coverage_80_mean": 90.9,
-   "pinball_mean": 19375486.7676
+   "pinball_mean": 19375374.547
   },
   {
    "scale": 2.0,
    "coverage_80_mean": 95.8,
-   "pinball_mean": 21075398.5133
+   "pinball_mean": 21075376.0716
   },
   {
    "scale": 3.0,
    "coverage_80_mean": 99.2,
-   "pinball_mean": 26185815.4256
+   "pinball_mean": 26185781.7736
   }
  ]
 }

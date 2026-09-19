@@ -1,8 +1,12 @@
 """Quantile calibration sweep on the real Grafana/Thanos series.
 
-Forecasts each window once with the real engine, then evaluates how scaling the
-quantile spread around the median affects 80% interval coverage and pinball
-loss. Writes ``benchmarks/data/calibration.json``.
+Forecasts each window once with the real evaluator under the frozen Phase-2
+defaults (ADR 0007), then evaluates how scaling the quantile spread around the
+median affects 80% interval coverage and pinball loss. Writes
+``benchmarks/data/calibration.json``.
+
+This benchmark drives the evaluator directly so the evidence matches the exact
+evaluator arguments Precog sets, including ``make_positive=False``.
 
     PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.calibration
 """
@@ -14,29 +18,39 @@ from pathlib import Path
 
 import numpy as np
 
-from benchmarks import predict_univariate
-from precog_api.config import Settings
-from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import QUANTILE_LEVELS
-
 DATA = Path(__file__).parent / "data" / "complex_series.json"
 OUT = Path(__file__).parent / "data" / "calibration.json"
 CACHE_DIR = "/home/albe/.cache/precog/models"
+MODEL_ID = "google/timesfm-3.0-pytorch"
 CONTEXT = 168
 HORIZON = 24
 WINDOWS = 4
 SCALES = (0.8, 1.0, 1.5, 2.0, 3.0)
-MEDIAN_INDEX = len(QUANTILE_LEVELS) // 2
 
 
-def _calibrate(quantiles: np.ndarray, scale: float) -> np.ndarray:
-    median = quantiles[:, [MEDIAN_INDEX]]
+def _evaluator():
+    from timesfm3 import ModelConfig, TimesFM3Evaluator
+
+    return TimesFM3Evaluator(
+        ModelConfig(
+            checkpoint_path=MODEL_ID,
+            per_core_batch_size=8,
+            device="cpu",
+            revision=None,
+            cache_dir=CACHE_DIR,
+            local_files_only=True,
+        )
+    )
+
+
+def _calibrate(quantiles: np.ndarray, scale: float, median_index: int) -> np.ndarray:
+    median = quantiles[:, [median_index]]
     return median + (quantiles - median) * scale
 
 
-def _pinball(actual: np.ndarray, quantiles: np.ndarray) -> float:
+def _pinball(actual: np.ndarray, quantiles: np.ndarray, grid: tuple[float, ...]) -> float:
     losses = []
-    for index, tau in enumerate(QUANTILE_LEVELS):
+    for index, tau in enumerate(grid):
         diff = actual - quantiles[:, index]
         losses.append(float(np.where(diff >= 0, diff * tau, -diff * (1 - tau)).mean()))
     return float(np.mean(losses))
@@ -44,15 +58,9 @@ def _pinball(actual: np.ndarray, quantiles: np.ndarray) -> float:
 
 def main() -> None:
     payload = json.loads(DATA.read_text())
-    engine = TimesFM3Engine(
-        Settings(
-            engine="timesfm3",
-            cache_dir=CACHE_DIR,
-            local_files_only=True,
-            per_core_batch_size=4,
-            torch_threads=8,
-        )
-    )
+    evaluator = _evaluator()
+    grid = tuple(float(level) for level in evaluator.config.quantiles)
+    median_index = int(evaluator.config.median_quantile_index)
 
     coverage: dict[float, list[float]] = {scale: [] for scale in SCALES}
     pinball: dict[float, list[float]] = {scale: [] for scale in SCALES}
@@ -65,14 +73,25 @@ def main() -> None:
                 break
             context = window[end - CONTEXT : end]
             actual = np.asarray(window[end : end + HORIZON])
-            _, raw = predict_univariate(engine, "s", context, HORIZON)
-            assert raw is not None
+            output = next(
+                evaluator.predict_batch(
+                    contexts=[context],
+                    horizon=HORIZON,
+                    return_quantiles=True,
+                    use_symmetric_averaging=False,
+                    make_positive=False,
+                    sort_quantiles=True,
+                    use_znorm=False,
+                    padding_mode="none",
+                )
+            )
+            raw = np.asarray(output.quantiles)
             for scale in SCALES:
-                quantiles = _calibrate(raw, scale)
+                quantiles = _calibrate(raw, scale, median_index)
                 coverage[scale].append(
                     float(np.mean((actual >= quantiles[:, 0]) & (actual <= quantiles[:, -1])) * 100)
                 )
-                pinball[scale].append(_pinball(actual, quantiles))
+                pinball[scale].append(_pinball(actual, quantiles, grid))
 
     results = [
         {

@@ -8,7 +8,8 @@ and the forecast sensitivity between the two settings. Writes
 
 This benchmark drives the evaluator directly because symmetric averaging is an
 engine/evaluator concern, intentionally not part of the execution problem
-(ADR 0006/0007).
+(ADR 0006/0007). It sets the frozen Phase-2 defaults explicitly, so the evidence
+does not depend on inherited evaluator behavior.
 
     PRECOG_LOCAL_FILES_ONLY=true .venv/bin/python -m benchmarks.symmetric_averaging
 """
