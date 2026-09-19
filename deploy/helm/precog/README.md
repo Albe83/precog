@@ -288,6 +288,10 @@ helm uninstall precog -n precog
 | `metrics.serviceMonitor.path` | string | `/metrics` | Metrics path. |
 | `metrics.serviceMonitor.labels` | map | `{}` | Extra labels (e.g. your Prometheus release). |
 
+`helm test precog` runs the API `/readyz` check and, when the MCP is enabled,
+an MCP `/metrics` check. GitOps tools that do not execute Helm test hooks (for
+example Argo CD) will not run them — set `tests.enabled=false` there.
+
 ## Notes
 
 - The API downloads the pinned revision into `modelCache.mountPath`; the cache

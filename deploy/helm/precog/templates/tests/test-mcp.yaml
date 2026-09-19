@@ -1,0 +1,38 @@
+{{- if and .Values.tests.enabled .Values.mcp.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "precog.fullname" . }}-test-mcp
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test-mcp
+      image: "{{ .Values.mcp.image.repository }}:{{ .Values.mcp.image.tag }}"
+      imagePullPolicy: {{ .Values.mcp.image.pullPolicy }}
+      command: ["python", "-c"]
+      args:
+        - |
+          import urllib.request
+          url = "http://{{ include "precog.fullname" . }}-mcp:{{ .Values.mcp.service.port }}/metrics"
+          with urllib.request.urlopen(url, timeout=10) as response:
+              raise SystemExit(0 if response.status == 200 else 1)
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+{{- end }}
