@@ -23,7 +23,7 @@ spec:
   egress:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-{{- if .Values.mcp.enabled }}
+{{- if and .Values.mcp.enabled (eq .Values.mcp.deploymentMode "deployment") }}
 {{- $mcpEgress := .Values.networkPolicy.mcp.egress | default .Values.networkPolicy.egress }}
 ---
 apiVersion: networking.k8s.io/v1

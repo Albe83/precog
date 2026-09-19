@@ -165,6 +165,63 @@ spec:
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+        {{- if and .Values.mcp.enabled (eq .Values.mcp.deploymentMode "sidecar") }}
+        - name: mcp
+          image: "{{ .Values.mcp.image.repository }}:{{ .Values.mcp.image.tag }}"
+          imagePullPolicy: {{ .Values.mcp.image.pullPolicy }}
+          ports:
+            - name: mcp
+              containerPort: {{ .Values.mcp.service.targetPort }}
+          env:
+            - name: PRECOG_MCP_TRANSPORT
+              value: http
+            - name: PRECOG_MCP_PORT
+              value: {{ .Values.mcp.service.targetPort | quote }}
+            - name: PRECOG_API_URL
+              value: {{ default (printf "http://127.0.0.1:%v" .Values.service.targetPort) .Values.mcp.apiUrl | quote }}
+            {{- if or .Values.config.apiKey .Values.config.existingSecret }}
+            - name: PRECOG_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "precog.apiKeySecretName" . }}
+                  key: {{ include "precog.apiKeySecretKey" . }}
+            {{- end }}
+            {{- if .Values.mcp.allowedHosts }}
+            - name: PRECOG_MCP_ALLOWED_HOSTS
+              value: {{ .Values.mcp.allowedHosts | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- end }}
       volumes:
         - name: model-cache
           {{- if eq (include "precog.modelCache.persistenceEnabled" .) "true" }}

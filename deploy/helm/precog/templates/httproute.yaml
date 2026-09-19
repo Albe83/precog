@@ -20,7 +20,7 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    {{- if .Values.httpRoute.mcp.enabled }}
+    {{- if and .Values.httpRoute.mcp.enabled (or (eq .Values.mcp.deploymentMode "deployment") .Values.mcp.service.enabled) }}
     - matches:
         - path:
             type: {{ .Values.httpRoute.mcp.pathType }}
