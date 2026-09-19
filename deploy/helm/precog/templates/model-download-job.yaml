@@ -44,6 +44,8 @@ spec:
               value: {{ .Values.modelCache.mountPath | quote }}
             - name: PRECOG_PRELOAD
               value: always
+            - name: PRECOG_PRUNE_OLD_REVISIONS
+              value: {{ .Values.modelCache.pruneOldRevisions | quote }}
             {{- if .Values.modelCache.hfTokenSecret }}
             - name: PRECOG_HF_TOKEN
               valueFrom:

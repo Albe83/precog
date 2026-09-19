@@ -184,6 +184,7 @@ helm uninstall precog -n precog
 | `modelCache.modelId` | string | `google/timesfm-3.0-pytorch` | Hugging Face repo id. |
 | `modelCache.revision` | string | `43046b85…` | Pinned revision to download. |
 | `modelCache.preload` | string | `auto` | `auto` download if missing, `always` force, `never` expect pre-seeded. |
+| `modelCache.pruneOldRevisions` | bool | `false` | Remove cached snapshots other than `revision` (needs a pinned revision). |
 | `modelCache.mountPath` | string | `/opt/precog/hf` | Cache mount path. |
 | `modelCache.hfTokenSecret` | string | `""` | Secret name with key `hf-token` (gated repos). |
 | `modelCache.persistence.enabled` | bool | `false` | Create/use a PVC; `false` uses `emptyDir`. |
