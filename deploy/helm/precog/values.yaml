@@ -191,6 +191,21 @@ topologySpreadConstraints: []
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.
 terminationGracePeriodSeconds: 360
 
+# Optional NetworkPolicies (disabled by default). When enabled each workload
+# gets a policy that is default-deny for ingress unless rules are provided.
+# Provide the callers (e.g. a gateway) and, for the API, egress to
+# huggingface.co + DNS on first start when egress is restricted.
+networkPolicy:
+  enabled: false
+  # Common egress rules used when a workload-specific list is empty.
+  egress: []
+  api:
+    ingress: []
+    egress: []
+  mcp:
+    ingress: []
+    egress: []
+
 # Chart connectivity tests (`helm test precog`): the API `/readyz` and, when
 # mcp.enabled=true, the MCP `/metrics` endpoint. GitOps tools that do not run
 # Helm test hooks (for example Argo CD) should set this to false to avoid

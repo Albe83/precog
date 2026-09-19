@@ -1,0 +1,55 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $apiEgress := .Values.networkPolicy.api.egress | default .Values.networkPolicy.egress }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "precog.fullname" . }}
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "precog.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    {{- if $apiEgress }}
+    - Egress
+    {{- end }}
+  {{- with .Values.networkPolicy.api.ingress }}
+  ingress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $apiEgress }}
+  egress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- if .Values.mcp.enabled }}
+{{- $mcpEgress := .Values.networkPolicy.mcp.egress | default .Values.networkPolicy.egress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "precog.fullname" . }}-mcp
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "precog.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mcp
+  policyTypes:
+    - Ingress
+    {{- if $mcpEgress }}
+    - Egress
+    {{- end }}
+  {{- with .Values.networkPolicy.mcp.ingress }}
+  ingress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $mcpEgress }}
+  egress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -144,6 +144,19 @@ Mount a corporate CA (TLS inspection) and point Python at it:
 --set extraEnv[0].value=/etc/ssl/certs/corp-ca.crt
 ```
 
+Restrict network access (default-deny ingress unless rules are given):
+
+```bash
+--set networkPolicy.enabled=true \
+--set networkPolicy.mcp.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=agentgateway \
+--set networkPolicy.mcp.ingress[0].ports[0].port=8765 \
+--set networkPolicy.api.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=precog-mcp \
+--set networkPolicy.api.ingress[0].ports[0].port=8000
+```
+
+When egress is restricted, allow the API to reach `huggingface.co` (and DNS) on
+first start unless the cache volume is pre-seeded.
+
 ## Access
 
 ```bash
@@ -291,6 +304,17 @@ helm uninstall precog -n precog
 `helm test precog` runs the API `/readyz` check and, when the MCP is enabled,
 an MCP `/metrics` check. GitOps tools that do not execute Helm test hooks (for
 example Argo CD) will not run them — set `tests.enabled=false` there.
+
+### NetworkPolicy (`networkPolicy`, disabled by default)
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `networkPolicy.enabled` | bool | `false` | Render a NetworkPolicy per workload. |
+| `networkPolicy.egress` | list | `[]` | Common egress rules used when a workload list is empty. |
+| `networkPolicy.api.ingress` | list | `[]` | API ingress rules (`from`/`ports`); empty = deny all ingress. |
+| `networkPolicy.api.egress` | list | `[]` | API egress rules (allow `huggingface.co` + DNS when restricted). |
+| `networkPolicy.mcp.ingress` | list | `[]` | MCP ingress rules. |
+| `networkPolicy.mcp.egress` | list | `[]` | MCP egress rules. |
 
 ## Notes
 
