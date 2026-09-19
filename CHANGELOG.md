@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.13.0](https://github.com/Albe83/precog/compare/v0.12.0...v0.13.0) (2026-09-19)
+
+
+### Features
+
+* **sdk:** add TypeScript client package ([#129](https://github.com/Albe83/precog/issues/129)) ([c8595ee](https://github.com/Albe83/precog/commit/c8595ee4d2ed69a325a40e58fc42e6bba5753b72))
+* **webui:** add minimal web UI on the TypeScript SDK ([#131](https://github.com/Albe83/precog/issues/131)) ([f2ff3e8](https://github.com/Albe83/precog/commit/f2ff3e8dd5ec51e5762efc277ef5aceac3361b4b))
+
 ## [0.12.0](https://github.com/Albe83/precog/compare/v0.11.0...v0.12.0) (2026-09-19)
 
 
