@@ -12,10 +12,10 @@ TOOL_DURATION = Histogram(
 )
 
 
-def record_tool_call(tool: str, result: dict, duration_s: float) -> None:
-    """Record one tool call outcome."""
+def record_tool_call(tool: str, status: str, duration_s: float) -> None:
+    """Record one tool call outcome (``status`` is ``"ok"`` or ``"error"``)."""
     TOOL_DURATION.labels(tool).observe(duration_s)
-    TOOL_CALLS.labels(tool, "error" if "error" in result else "ok").inc()
+    TOOL_CALLS.labels(tool, status).inc()
 
 
 async def metrics_handler(_: Request) -> Response:

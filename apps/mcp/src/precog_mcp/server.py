@@ -4,26 +4,45 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
-from pydantic import ValidationError
+from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import Field, ValidationError
 
+from precog_mcp.adapter import ForecastAdapterError, execute_forecast
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.errors import (
+    ToolErrorMiddleware,
+    adapter_error_envelope,
+    error_envelope,
+    validation_error_details,
+)
+from precog_mcp.models import (
+    ForecastResult,
+    ForecastToolRequest,
+    HistoricalSeries,
+    KnownFutureSeries,
+)
 from precog_mcp.observability import metrics_handler, record_tool_call
 from precog_mcp.tracing import setup_tracing
 from precog_schemas import ForecastRequest
 
 TOOL_DESCRIPTION = (
-    "Zero-shot time-series forecast with TimesFM-3. "
-    "`mode` is 'univariate' (each series forecast independently) or 'multivariate' "
-    "(targets forecast jointly). Each item in `series` is an object with "
-    "`id`, `target` (list of floats), and optional `past_covariates` / "
-    "`future_covariates` (maps name -> list of floats; future covariates must "
-    "cover context + horizon). In multivariate mode covariates are request-level "
-    "(`past_covariates` / `future_covariates` on the arguments). Returns point "
-    "forecasts and 9 quantiles."
+    "Forecast future values for one or more related numeric time series.\n\n"
+    "Provide historical values for each target and the number of future steps to "
+    "predict. Optionally provide historical-only covariates and covariates whose "
+    "future values are already known.\n\n"
+    "All input series must already be cleaned, equally sampled, time-aligned, and "
+    "ordered from oldest to newest. This tool does not fetch, resample, clean, or "
+    "interpret source data.\n\n"
+    "Multiple targets are forecast jointly and must represent related series on the "
+    "same timeline. Use separate calls for unrelated forecasting problems.\n\n"
+    "`horizon` is expressed in future steps using the same sampling interval as the "
+    "input data.\n\n"
+    "The result contains a point forecast for each target and, when requested, "
+    "probabilistic quantiles representing forecast uncertainty."
 )
 
 BATCH_TOOL_DESCRIPTION = (
@@ -35,7 +54,7 @@ BATCH_TOOL_DESCRIPTION = (
 
 
 async def run_forecast(client: ForecastApiClient, payload: dict[str, Any]) -> dict[str, Any]:
-    """Validate a forecast payload and call the API, mapping errors to a dict."""
+    """Validate a legacy forecast payload and call the API, mapping errors to a dict."""
     try:
         ForecastRequest.model_validate(payload)
     except ValidationError as exc:
@@ -52,7 +71,7 @@ async def run_forecast_batch(
     *,
     concurrency: int = 4,
 ) -> list[dict[str, Any]]:
-    """Forecast several payloads concurrently, preserving order."""
+    """Forecast several legacy payloads concurrently, preserving order."""
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def one(payload: dict[str, Any]) -> dict[str, Any]:
@@ -77,38 +96,37 @@ def create_server(
     server: MCPServer = MCPServer(
         name="precog",
         version="0.1.0",
-        instructions="Forecast time series with Google TimesFM-3 via the Precog API.",
+        instructions="Forecast numeric time series with Precog.",
+        middleware=[ToolErrorMiddleware()],
     )
     server.custom_route("/metrics", methods=["GET"], include_in_schema=False)(metrics_handler)
 
-    def request_level(payload: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
-        for key, value in params.items():
-            if value:
-                payload[key] = value
-        return payload
-
     @server.tool(name="forecast", description=TOOL_DESCRIPTION)
     async def forecast(
-        mode: str,
+        targets: list[HistoricalSeries],
         horizon: int,
-        series: list[dict[str, Any]],
-        return_quantiles: bool = True,
-        past_covariates: dict[str, list[float]] | None = None,
-        future_covariates: dict[str, list[float]] | None = None,
-    ) -> dict[str, Any]:
-        payload = request_level(
-            {
-                "mode": mode,
-                "horizon": horizon,
-                "series": series,
-                "options": {"return_quantiles": return_quantiles},
-            },
-            {"past_covariates": past_covariates, "future_covariates": future_covariates},
-        )
-        started = time.perf_counter()
-        result = await run_forecast(client, payload)
-        record_tool_call("forecast", result, time.perf_counter() - started)
-        return result
+        past_covariates: Annotated[list[HistoricalSeries], Field(default_factory=list)],
+        known_future_covariates: Annotated[list[KnownFutureSeries], Field(default_factory=list)],
+        quantiles: Annotated[list[float], Field(default_factory=lambda: [0.1, 0.9])],
+    ) -> ForecastResult:
+        try:
+            request = ForecastToolRequest(
+                targets=targets,
+                horizon=horizon,
+                past_covariates=past_covariates,
+                known_future_covariates=known_future_covariates,
+                quantiles=quantiles,
+            )
+        except ValidationError as exc:
+            raise ToolError(
+                error_envelope(
+                    "INVALID_REQUEST", "invalid forecast request", validation_error_details(exc)
+                )
+            ) from exc
+        try:
+            return await execute_forecast(client, request)
+        except ForecastAdapterError as exc:
+            raise ToolError(adapter_error_envelope(exc)) from exc
 
     @server.tool(name="forecast_batch", description=BATCH_TOOL_DESCRIPTION)
     async def forecast_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
@@ -122,7 +140,8 @@ def create_server(
                 client, requests, concurrency=settings.mcp_batch_concurrency
             )
             result = {"count": len(results), "results": results}
-        record_tool_call("forecast_batch", result, time.perf_counter() - started)
+        status = "error" if "error" in result else "ok"
+        record_tool_call("forecast_batch", status, time.perf_counter() - started)
         return result
 
     return server
