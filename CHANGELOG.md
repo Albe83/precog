@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.15.0](https://github.com/Albe83/precog/compare/v0.14.0...v0.15.0) (2026-09-19)
+
+
+### Features
+
+* **mcp:** phase 1 semantic boundary ([#161](https://github.com/Albe83/precog/issues/161)) ([723af75](https://github.com/Albe83/precog/commit/723af75633363b5362affef4043ee1d0532b289d))
+
 ## [0.14.0](https://github.com/Albe83/precog/compare/v0.13.1...v0.14.0) (2026-09-19)
 
 
