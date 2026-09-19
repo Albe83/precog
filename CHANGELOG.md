@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.17.3](https://github.com/Albe83/precog/compare/v0.17.2...v0.17.3) (2026-09-19)
+
+
+### Documentation
+
+* **api:** record TimesFM execution defaults and calibration ownership ([#182](https://github.com/Albe83/precog/issues/182)) ([86a9460](https://github.com/Albe83/precog/commit/86a9460bce56e7a90fb10494077bcf5e8cfa35af))
+
 ## [0.17.2](https://github.com/Albe83/precog/compare/v0.17.1...v0.17.2) (2026-09-19)
 
 
