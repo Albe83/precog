@@ -191,7 +191,10 @@ topologySpreadConstraints: []
 # (config.requestTimeout, default 300s) so in-flight forecasts complete.
 terminationGracePeriodSeconds: 360
 
-# Chart connectivity test (`helm test precog`).
+# Chart connectivity tests (`helm test precog`): the API `/readyz` and, when
+# mcp.enabled=true, the MCP `/metrics` endpoint. GitOps tools that do not run
+# Helm test hooks (for example Argo CD) should set this to false to avoid
+# rendering the test Pods.
 tests:
   enabled: true
 
