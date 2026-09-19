@@ -3,10 +3,14 @@
 `apps/mcp` exposes Precog forecasts as an MCP tool. It talks to the REST API
 over HTTP and contains no model weights.
 
-> **Breaking change (MCP only).** The `forecast` and `forecast_batch` tools use
-> a new consumer-facing contract. The REST API (`POST /v1/forecast`), the shared
-> `precog_schemas` models and the Python/TypeScript SDKs are unchanged; only the
-> MCP surface moved to the model-independent contract below.
+The architectural role of the MCP server — the agent-facing semantic interface,
+with the REST API as its execution dependency — is recorded in
+[ADR 0005](adr/0005-mcp-semantic-boundary.md).
+
+> **Breaking change (MCP only).** The `forecast` tool uses a new consumer-facing
+> contract. The REST API (`POST /v1/forecast`), the shared `precog_schemas`
+> models and the Python/TypeScript SDKs are unchanged; only the MCP surface
+> moved to the model-independent contract below.
 
 ## What Precog does and does not do
 
@@ -41,8 +45,8 @@ Forecast future values for one or more related numeric time series.
 means the next hour. Precog does not need to know the sampling interval.
 
 Multiple `targets` are forecast **jointly** and must represent related series on
-the same timeline. Unrelated forecasting problems require separate calls (or
-separate items in `forecast_batch`).
+the same timeline. Unrelated forecasting problems require separate `forecast`
+calls; the MCP server intentionally does not expose a batch tool.
 
 ### Historical-only vs known-future covariates
 
@@ -110,31 +114,6 @@ A successful call returns MCP structured content:
 - `model` reports the forecasting engine actually used.
 - `warnings` lists non-fatal conditions. It does not hide destructive or
   semantic changes to the input; invalid input fails instead.
-
-## Tool: `forecast_batch`
-
-Forecast several **independent** requests in one call. Each item in `requests`
-is a complete `forecast` request. Related series that must be forecast jointly
-belong together as multiple `targets` inside a single request, never as separate
-batch items.
-
-Each result carries a stable zero-based `index` and preserves input order:
-
-```json
-{
-  "results": [
-    { "index": 0, "ok": true, "result": { "horizon": 2, "targets": [], "model": { "id": "timesfm-3.0" }, "warnings": [] } },
-    { "index": 1, "ok": false, "error": { "code": "FORECAST_REJECTED", "message": "horizon 2 exceeds max 1" } }
-  ]
-}
-```
-
-A valid batch with one or more per-item forecast failures is still a successful
-call (`isError=false`); failed items use the typed failure variant and do not
-cancel their siblings. An empty or oversized batch fails the whole tool call.
-
-Batch size and concurrency are bounded by `PRECOG_MCP_BATCH_MAX` (default 32)
-and `PRECOG_MCP_BATCH_CONCURRENCY` (default 4).
 
 ## Errors
 
@@ -225,19 +204,11 @@ context returns:
 }
 ```
 
-### Independent batch with one failed item
+### Independent problems
 
-```json
-{
-  "requests": [
-    { "targets": [{ "id": "cpu_usage", "values": [31.2, 32.8, 35.1, 37.4, 41.2, 43.7] }], "horizon": 2 },
-    { "targets": [{ "id": "disk_usage", "values": [10.0, 10.4, 10.9, 11.2, 11.5, 12.0] }], "horizon": 99999 }
-  ]
-}
-```
-
-The second item is rejected by the API limit and appears as an `ok: false` item
-with `FORECAST_REJECTED`; the first item is unaffected.
+Independent forecasting problems use independent `forecast` calls. The MCP
+client or harness can parallelize those calls. Do not pack unrelated series into
+one request: every `targets` entry in a request is forecast jointly.
 
 ## Migrating from the old MCP contract
 
@@ -249,7 +220,8 @@ with `FORECAST_REJECTED`; the first item is unaffected.
 | combined future covariate values (`context + horizon`) | `known_future_covariates[].history` + `.future` |
 | `return_quantiles` | `quantiles` (requested levels) |
 | `results[]` + `quantile_levels` | `targets[].forecast` + `targets[].quantiles[level]` |
-| nominal `{ "error": ... }` | MCP tool errors; typed per-item errors only inside a successful batch |
+| nominal `{ "error": ... }` | MCP tool errors with stable codes |
+| `forecast_batch` tool | removed; use separate `forecast` calls |
 
 This change is MCP-only. The REST request/response shapes and the SDKs keep
 their current contract.
@@ -316,6 +288,6 @@ podman run --rm -p 8765:8765 -e PRECOG_API_URL=http://host.docker.internal:8000 
 The HTTP transport exposes Prometheus metrics on `/metrics`
 (`precog_mcp_tool_calls_total{tool,status}` and
 `precog_mcp_tool_duration_seconds{tool}`). A tool-level failure increments the
-`error` status; per-item failures inside a successful batch do not.
+`error` status.
 
 The Helm chart can deploy it next to the API with `--set mcp.enabled=true`.

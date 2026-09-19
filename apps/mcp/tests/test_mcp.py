@@ -93,12 +93,7 @@ def test_list_tools_exposes_the_new_contract() -> None:
     assert list(forecast.output_schema["properties"]) == ["horizon", "targets", "model", "warnings"]
     for removed in ("mode", "series", "return_quantiles"):
         assert removed not in forecast.input_schema["properties"]
-
-    batch = tools["forecast_batch"]
-    assert list(batch.input_schema["properties"]) == ["requests"]
-    assert batch.input_schema.get("additionalProperties") is False
-    assert batch.output_schema is not None
-    assert "results" in batch.output_schema["properties"]
+    assert "forecast_batch" not in tools
 
 
 def test_forecast_success_returns_structured_content() -> None:
@@ -157,14 +152,17 @@ def test_rest_rejection_maps_to_forecast_rejected() -> None:
 
 def test_unreachable_api_maps_to_api_unavailable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused")
+        raise httpx.ConnectError("TLS failure for https://internal.example:8443")
 
     async def scenario(session: ClientSession):
         return await session.call_tool("forecast", FORECAST_ARGS)
 
     result = asyncio.run(_run(handler, scenario))
     assert result.is_error is True
-    assert _envelope(result)["code"] == "API_UNAVAILABLE"
+    payload = _envelope(result)
+    assert payload["code"] == "API_UNAVAILABLE"
+    assert "internal.example" not in result.content[0].text
+    assert payload["message"] == "Precog API is unavailable"
 
 
 def test_server_error_maps_to_inference_failed() -> None:
@@ -203,86 +201,13 @@ def test_failure_never_returns_nominal_forecast_result() -> None:
     assert result.structured_content is None
 
 
-def _batch_handler(request: httpx.Request) -> httpx.Response:
-    body = json.loads(request.content)
-    if body["series"][0]["id"] == "bad":
-        return httpx.Response(422, json={"title": "Unprocessable Entity", "detail": "rejected"})
-    return httpx.Response(200, json=_rest_payload([body["series"][0]["id"]], body["horizon"]))
-
-
-def test_forecast_batch_preserves_order_and_index() -> None:
-    requests = [
-        {"targets": [{"id": series_id, "values": [1.0, 2.0, 3.0]}], "horizon": 2}
-        for series_id in ("a", "b", "c")
-    ]
-
-    async def scenario(session: ClientSession):
-        return await session.call_tool("forecast_batch", {"requests": requests})
-
-    result = asyncio.run(_run(_batch_handler, scenario))
-    assert result.is_error is False
-    items = result.structured_content["results"]
-    assert [item["index"] for item in items] == [0, 1, 2]
-    assert [item["ok"] for item in items] == [True, True, True]
-    assert [item["result"]["targets"][0]["id"] for item in items] == ["a", "b", "c"]
-
-
-def test_forecast_batch_partial_failure_does_not_cancel_siblings() -> None:
-    requests = [
-        {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-        {"targets": [{"id": "c", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-    ]
-
-    async def scenario(session: ClientSession):
-        return await session.call_tool("forecast_batch", {"requests": requests})
-
-    result = asyncio.run(_run(_batch_handler, scenario))
-    assert result.is_error is False
-    items = result.structured_content["results"]
-    assert [item["ok"] for item in items] == [True, False, True]
-    assert items[1]["error"]["code"] == "FORECAST_REJECTED"
-
-
-def test_forecast_batch_all_failures_is_still_a_successful_call() -> None:
-    requests = [
-        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-        {"targets": [{"id": "bad", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-    ]
-
-    async def scenario(session: ClientSession):
-        return await session.call_tool("forecast_batch", {"requests": requests})
-
-    result = asyncio.run(_run(_batch_handler, scenario))
-    assert result.is_error is False
-    assert all(item["ok"] is False for item in result.structured_content["results"])
-
-
-def test_forecast_batch_empty_is_a_tool_error() -> None:
+def test_forecast_batch_is_not_available() -> None:
     async def scenario(session: ClientSession):
         return await session.call_tool("forecast_batch", {"requests": []})
 
-    result = asyncio.run(_run(_batch_handler, scenario))
+    result = asyncio.run(_run(_ok_handler, scenario))
     assert result.is_error is True
     assert _envelope(result)["code"] == "INVALID_REQUEST"
-
-
-def test_forecast_batch_oversize_is_a_tool_error() -> None:
-    requests = [
-        {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-        {"targets": [{"id": "b", "values": [1.0, 2.0, 3.0]}], "horizon": 2},
-    ]
-
-    async def scenario(session: ClientSession):
-        return await session.call_tool("forecast_batch", {"requests": requests})
-
-    result = asyncio.run(
-        _run(_batch_handler, scenario, Settings(api_url="http://api.test", mcp_batch_max=1))
-    )
-    assert result.is_error is True
-    payload = _envelope(result)
-    assert payload["code"] == "INVALID_REQUEST"
-    assert payload["details"]["max"] == 1
 
 
 def test_missing_required_field_is_invalid_request() -> None:

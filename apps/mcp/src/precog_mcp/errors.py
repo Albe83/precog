@@ -25,7 +25,6 @@ _ALLOWED_ARGUMENTS: dict[str, frozenset[str]] = {
     "forecast": frozenset(
         {"targets", "horizon", "past_covariates", "known_future_covariates", "quantiles"}
     ),
-    "forecast_batch": frozenset({"requests"}),
 }
 
 
@@ -182,17 +181,19 @@ class ToolErrorMiddleware:
         )
 
 
-_VALIDATION_ERROR_MARKER = "validation error"
+# Failures that are clearly the caller's mistake and safe to report verbatim.
+_CALLER_ERROR_MARKERS = ("validation error", "unknown tool")
 
 
 def _untyped_failure(text: str | None) -> dict[str, Any]:
     """Classify a tool failure that did not carry a Precog envelope.
 
-    The SDK's own input-schema rejections are the caller's mistake and keep
-    field-level context; anything else is an unexpected server-side defect whose
-    details stay in the logs.
+    SDK input-schema rejections and unknown-tool requests are the caller's
+    mistake and keep their context; anything else is an unexpected server-side
+    defect whose details stay in the logs.
     """
-    if text and _VALIDATION_ERROR_MARKER in text:
+    lowered = (text or "").lower()
+    if any(marker in lowered for marker in _CALLER_ERROR_MARKERS):
         return {"code": ErrorCode.INVALID_REQUEST.value, "message": text}
     logger.error("unexpected tool failure: %s", text or "<no message>")
     return {"code": ErrorCode.INTERNAL_ERROR.value, "message": INTERNAL_ERROR_MESSAGE}

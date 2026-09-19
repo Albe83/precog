@@ -37,16 +37,6 @@ FULL_REQUEST = {
     "quantiles": [0.1, 0.9],
 }
 
-BATCH_REQUEST = {
-    "requests": [
-        {"targets": [{"id": "cpu_usage", "values": INTEGRATION_CONTEXT}], "horizon": 2},
-        {
-            "targets": [{"id": "disk_usage", "values": [10.0, 10.4, 10.9, 11.2, 11.5, 12.0]}],
-            "horizon": 99999,
-        },
-    ]
-}
-
 
 def _rest_payload(ids: list[str], horizon: int) -> dict[str, Any]:
     return {
@@ -114,9 +104,7 @@ def test_registered_forecast_schema_matches_documented_contract() -> None:
     assert list(forecast.output_schema["properties"]) == ["horizon", "targets", "model", "warnings"]
     assert forecast.output_schema["required"] == ["horizon", "targets", "model"]
 
-    batch = next(tool for tool in tools.tools if tool.name == "forecast_batch")
-    assert list(batch.input_schema["properties"]) == ["requests"]
-    assert batch.input_schema["additionalProperties"] is False
+    assert "forecast_batch" not in {tool.name for tool in tools.tools}
 
 
 def test_documented_minimal_payload_is_valid() -> None:
@@ -244,15 +232,3 @@ def test_documented_invalid_length_error_shape() -> None:
     payload = json.loads(result.content[0].text)
     assert payload["code"] == "INVALID_REQUEST"
     assert payload["details"]["errors"]
-
-
-def test_documented_batch_example() -> None:
-    async def scenario(session: ClientSession):
-        return await session.call_tool("forecast_batch", BATCH_REQUEST)
-
-    result = asyncio.run(_run(scenario))
-    assert result.is_error is False
-    items = result.structured_content["results"]
-    assert items[0]["ok"] is True
-    assert items[1]["ok"] is False
-    assert items[1]["error"]["code"] == "FORECAST_REJECTED"

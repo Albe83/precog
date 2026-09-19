@@ -237,11 +237,16 @@ def test_execute_forecast_rejection_is_typed() -> None:
 
 def test_execute_forecast_unreachable_is_typed() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused")
+        raise httpx.ConnectError(
+            "failed to connect to http://internal.example:9999 via proxy corp-proxy"
+        )
 
     with pytest.raises(ForecastAdapterError) as info:
         asyncio.run(execute_forecast(_client(handler), _request()))
     assert info.value.code is ErrorCode.API_UNAVAILABLE
+    assert "internal.example" not in info.value.message
+    assert "corp-proxy" not in info.value.message
+    assert info.value.message == "Precog API is unavailable"
 
 
 def test_execute_forecast_server_error_is_typed() -> None:
