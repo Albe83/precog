@@ -45,7 +45,27 @@ def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
     }
 
 
+def _capabilities_payload() -> dict[str, Any]:
+    return {
+        "model": "timesfm-3.0",
+        "model_id": "google/timesfm-3.0",
+        "revision": None,
+        "engine": "timesfm3",
+        "device": "cpu",
+        "modes": ["univariate", "multivariate"],
+        "max_horizon": 1024,
+        "max_context": 15360,
+        "max_series": 64,
+        "max_variates": 32,
+        "quantile_levels": list(QUANTILE_LEVELS),
+        "covariates": {"univariate": True, "multivariate": True},
+        "auth_required": False,
+    }
+
+
 def _ok_handler(request: httpx.Request) -> httpx.Response:
+    if request.method == "GET" and request.url.path == "/v1/capabilities":
+        return httpx.Response(200, json=_capabilities_payload())
     body = json.loads(request.content)
     ids = [series["id"] for series in body["series"]]
     return httpx.Response(200, json=_rest_payload(ids, body["horizon"]))
@@ -156,6 +176,52 @@ def test_backtest_removed_field_is_rejected() -> None:
     payload = _envelope(result)
     assert payload["code"] == "INVALID_REQUEST"
     assert "mode" in payload["details"]["unknown"]
+
+
+def test_list_resources_exposes_capabilities() -> None:
+    async def scenario(session: ClientSession):
+        return await session.list_resources()
+
+    resources = asyncio.run(_run(_ok_handler, scenario))
+    capabilities = next(r for r in resources.resources if str(r.uri) == "precog://capabilities")
+    assert capabilities.mime_type == "application/json"
+
+
+def test_read_capabilities_resource_returns_semantic_shape() -> None:
+    async def scenario(session: ClientSession):
+        return await session.read_resource("precog://capabilities")
+
+    result = asyncio.run(_run(_ok_handler, scenario))
+    text = result.contents[0].text
+    payload = json.loads(text)
+    assert payload["forecast"]["supported"] is True
+    assert payload["forecast"]["known_future_covariates"] is True
+    assert payload["backtest"]["supported"] is True
+    assert payload["backtest"]["metrics"] == ["mae", "rmse", "smape"]
+    assert payload["backtest"]["interval_coverage"] is True
+    assert payload["limits"]["max_horizon"] == 1024
+    assert payload["limits"]["max_context_length"] == 15360
+    assert payload["limits"]["quantile_levels"] == list(QUANTILE_LEVELS)
+    for backend_only in ("engine", "device", "modes", "max_variates", "max_series", "model_id"):
+        assert backend_only not in text
+
+
+def test_capabilities_resource_falls_back_when_api_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            raise httpx.ConnectError("TLS failure for https://internal.example:8443")
+        return _ok_handler(request)
+
+    async def scenario(session: ClientSession):
+        return await session.read_resource("precog://capabilities")
+
+    result = asyncio.run(_run(handler, scenario))
+    text = result.contents[0].text
+    payload = json.loads(text)
+    assert payload["limits"]["max_horizon"] is None
+    assert payload["limits"]["max_context_length"] is None
+    assert payload["forecast"]["supported"] is True
+    assert "internal.example" not in text
 
 
 def test_forecast_success_returns_structured_content() -> None:

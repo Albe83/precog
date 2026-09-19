@@ -60,7 +60,26 @@ def _rest_payload(ids: list[str], horizon: int) -> dict[str, Any]:
     }
 
 
+CAPABILITIES_PAYLOAD = {
+    "model": "timesfm-3.0",
+    "model_id": "google/timesfm-3.0",
+    "revision": None,
+    "engine": "timesfm3",
+    "device": "cpu",
+    "modes": ["univariate", "multivariate"],
+    "max_horizon": 1024,
+    "max_context": 15360,
+    "max_series": 64,
+    "max_variates": 32,
+    "quantile_levels": list(QUANTILE_LEVELS),
+    "covariates": {"univariate": True, "multivariate": True},
+    "auth_required": False,
+}
+
+
 def handler(request: httpx.Request) -> httpx.Response:
+    if request.method == "GET" and request.url.path == "/v1/capabilities":
+        return httpx.Response(200, json=CAPABILITIES_PAYLOAD)
     body = json.loads(request.content)
     if body["horizon"] > 1024:
         return httpx.Response(422, json={"title": "Unprocessable Entity", "detail": "too long"})
@@ -144,6 +163,26 @@ def test_documented_backtest_payload_is_valid() -> None:
     assert target["actual"] == [45.2, 47.8, 48.1]
     assert target["forecast"] == [1.0, 1.0, 1.0]
     assert target["metrics"]["mae"] == pytest.approx(46.03333333333333)
+
+
+def test_capabilities_resource_matches_documented_schema() -> None:
+    async def scenario(session: ClientSession):
+        return await session.read_resource("precog://capabilities")
+
+    result = asyncio.run(_run(scenario))
+    payload = json.loads(result.contents[0].text)
+    assert list(payload) == ["forecast", "backtest", "limits"]
+    assert list(payload["forecast"]) == [
+        "supported",
+        "multiple_targets",
+        "past_covariates",
+        "known_future_covariates",
+        "probabilistic_forecast",
+    ]
+    assert list(payload["backtest"]) == ["supported", "metrics", "interval_coverage"]
+    assert list(payload["limits"]) == ["max_horizon", "max_context_length", "quantile_levels"]
+    assert payload["limits"]["max_horizon"] == 1024
+    assert payload["limits"]["max_context_length"] == 15360
 
 
 def test_documented_minimal_payload_is_valid() -> None:

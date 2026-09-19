@@ -32,6 +32,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.server import create_server
+from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.integration
 
@@ -70,7 +71,7 @@ def _model_engine() -> Any:
     )
 
 
-async def _call_tool(tool_name: str, args: dict[str, Any]):
+async def _run_session(action):
     from precog_api.app import create_app
     from precog_api.config import Settings as ApiSettings
 
@@ -93,7 +94,21 @@ async def _call_tool(tool_name: str, args: dict[str, Any]):
                 ):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
-                        return await session.call_tool(tool_name, args)
+                        return await action(session)
+
+
+async def _call_tool(tool_name: str, args: dict[str, Any]):
+    async def action(session: ClientSession):
+        return await session.call_tool(tool_name, args)
+
+    return await _run_session(action)
+
+
+async def _read_resource(uri: str):
+    async def action(session: ClientSession):
+        return await session.read_resource(uri)
+
+    return await _run_session(action)
 
 
 def _call_forecast(args: dict[str, Any]):
@@ -319,3 +334,17 @@ def test_backtest_holdout_not_shorter_than_series_is_rejected() -> None:
     )
     assert result.is_error is True
     assert _envelope(result)["code"] == "INVALID_REQUEST"
+
+
+def test_capabilities_resource_reports_effective_limits() -> None:
+    result = asyncio.run(_read_resource("precog://capabilities"))
+    text = result.contents[0].text
+    payload = json.loads(text)
+    assert payload["forecast"]["supported"] is True
+    assert payload["backtest"]["supported"] is True
+    assert payload["limits"]["max_horizon"] == 1024
+    # Effective context is min(configured, engine) = 15360 for TimesFM-3.
+    assert payload["limits"]["max_context_length"] == 15360
+    assert payload["limits"]["quantile_levels"] == list(QUANTILE_LEVELS)
+    for backend_only in ("engine", "device", "max_variates", "max_series", "model_id"):
+        assert backend_only not in text
