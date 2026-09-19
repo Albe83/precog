@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger("precog.mcp")
+
+UNAVAILABLE_MESSAGE = "Precog API is unavailable"
 
 
 class ApiError(RuntimeError):
@@ -70,7 +75,10 @@ class ForecastApiClient:
         try:
             response = await self._client.post("/v1/forecast", json=payload)
         except httpx.HTTPError as exc:
-            raise ApiError(f"cannot reach Precog API: {exc}") from exc
+            # Transport diagnostics (internal hosts, URLs, TLS/proxy details)
+            # stay in logs; consumers get a stable sanitized message.
+            logger.warning("Precog API transport failure: %s", exc)
+            raise ApiError(UNAVAILABLE_MESSAGE) from exc
         if response.status_code >= 400:
             detail = _problem_detail(response)
             raise ApiError(detail, status=response.status_code, detail=detail)

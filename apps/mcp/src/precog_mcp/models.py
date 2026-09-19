@@ -7,7 +7,7 @@ independent from the REST/backend DTOs in :mod:`precog_schemas`. The adapter in
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated
 
 from pydantic import (
     BaseModel,
@@ -163,47 +163,9 @@ class ForecastResult(_StrictModel):
     warnings: list[ForecastWarning] = Field(default_factory=list)
 
 
-class ForecastToolError(_StrictModel):
-    """Machine-readable payload carried by a failed MCP tool result."""
-
-    code: str = Field(min_length=1)
-    message: str = Field(min_length=1)
-    details: dict[str, Any] | None = None
-
-
-class BatchSuccess(_StrictModel):
-    """A successful item inside a forecast batch."""
-
-    index: int = Field(ge=0)
-    ok: Literal[True]
-    result: ForecastResult
-
-
-class BatchFailure(_StrictModel):
-    """A failed item inside a forecast batch."""
-
-    index: int = Field(ge=0)
-    ok: Literal[False]
-    error: ForecastToolError
-
-
-BatchItem = Annotated[BatchSuccess | BatchFailure, Field(discriminator="ok")]
-
-
-class ForecastBatchResult(_StrictModel):
-    """Ordered per-item results for :func:`forecast_batch`."""
-
-    results: list[BatchItem]
-
-
 __all__ = [
-    "BatchFailure",
-    "BatchItem",
-    "BatchSuccess",
     "FiniteFloat",
-    "ForecastBatchResult",
     "ForecastResult",
-    "ForecastToolError",
     "ForecastToolRequest",
     "ForecastWarning",
     "HistoricalSeries",
