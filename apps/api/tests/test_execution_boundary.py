@@ -12,6 +12,7 @@ from precog_api.execution import (
     ExecutionProblem,
     ExecutionTarget,
 )
+from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.unit
 
@@ -55,6 +56,7 @@ def _engine() -> tuple[TimesFM3Engine, _StubEvaluator]:
     engine._evaluator = stub
     engine._max_context = 15360
     engine._max_variates = 32
+    engine._quantile_levels = tuple(QUANTILE_LEVELS)
     engine._ready = True
     return engine, stub
 

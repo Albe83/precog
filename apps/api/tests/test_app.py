@@ -183,3 +183,11 @@ def test_interpolate_missing_allows_interior_nan() -> None:
             "/v1/forecast", content=body, headers={"content-type": "application/json"}
         )
         assert response.status_code == 200
+
+
+def test_symmetric_averaging_is_rejected() -> None:
+    payload = _payload(options={"symmetric_averaging": True})
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=payload)
+    assert response.status_code == 422
+    assert "symmetric_averaging" in response.json()["detail"]
