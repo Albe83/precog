@@ -161,3 +161,25 @@ def test_capabilities_endpoint() -> None:
 def test_otel_enabled_does_not_break_startup() -> None:
     with make_client(otel_enabled=True) as client:
         assert client.get("/healthz").status_code == 200
+
+
+def test_nan_target_rejected() -> None:
+    body = '{"mode":"univariate","horizon":2,"series":[{"id":"a","target":[1.0,NaN,3.0]}]}'
+    with make_client() as client:
+        response = client.post(
+            "/v1/forecast", content=body, headers={"content-type": "application/json"}
+        )
+        assert response.status_code == 422
+        assert "non-finite" in response.json()["detail"]
+
+
+def test_interpolate_missing_allows_interior_nan() -> None:
+    body = (
+        '{"mode":"univariate","horizon":2,"series":[{"id":"a","target":[1.0,NaN,3.0]}],'
+        '"options":{"interpolate_missing":true}}'
+    )
+    with make_client() as client:
+        response = client.post(
+            "/v1/forecast", content=body, headers={"content-type": "application/json"}
+        )
+        assert response.status_code == 200

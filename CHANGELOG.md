@@ -132,6 +132,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- API: reject non-finite inputs (`NaN`/`Inf`) with a clear validation error;
+  `options.interpolate_missing` fills interior gaps by linear interpolation.
 - Benchmarks: aggregate baseline (MAE, MASE, coverage, pinball) committed to
   `benchmarks/data/benchmark_baseline.json` with a `--check` regression gate.
 - SDK: `precog` CLI (`precog forecast --file|--csv`, `precog capabilities`).
