@@ -11,6 +11,8 @@ under ``PRECOG_CACHE_DIR`` and the pinned revision.
 from __future__ import annotations
 
 import logging
+import shutil
+import string
 import time
 from pathlib import Path
 
@@ -97,7 +99,49 @@ def ensure_model(settings: Settings) -> bool:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    ensure_model(Settings())
+    settings = Settings()
+    ensure_model(settings)
+    if settings.prune_old_revisions:
+        prune_cache(settings)
+
+
+def prune_cache(settings: Settings) -> int:
+    """Remove cached snapshots other than the pinned revision; return the count.
+
+    Only runs when ``model_revision`` is a pinned commit sha (otherwise we cannot
+    tell which snapshot is current).
+    """
+    revision = settings.model_revision or ""
+    if not (len(revision) == 40 and all(char in string.hexdigits for char in revision)):
+        logger.info("model revision is not a pinned commit; skipping cache prune")
+        return 0
+
+    cache_dir = model_cache_path(settings)
+    repo_dir = cache_dir / f"models--{settings.model_id.replace('/', '--')}"
+    snapshots = repo_dir / "snapshots"
+    if not snapshots.is_dir():
+        return 0
+
+    removed = 0
+    for snapshot in snapshots.iterdir():
+        if snapshot.is_dir() and snapshot.name != revision:
+            shutil.rmtree(snapshot, ignore_errors=True)
+            removed += 1
+    _remove_unreferenced_blobs(repo_dir)
+    logger.info("pruned %d snapshot(s) from %s", removed, snapshots)
+    return removed
+
+
+def _remove_unreferenced_blobs(repo_dir: Path) -> None:
+    """Delete blobs no longer referenced by any remaining snapshot."""
+    blobs = repo_dir / "blobs"
+    snapshots = repo_dir / "snapshots"
+    if not blobs.is_dir():
+        return
+    referenced = {str(path.resolve()) for path in snapshots.rglob("*") if path.is_symlink()}
+    for blob in blobs.iterdir():
+        if str(blob.resolve()) not in referenced:
+            blob.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

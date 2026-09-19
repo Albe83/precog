@@ -32,6 +32,7 @@
         "modelId": { "type": "string" },
         "revision": { "type": "string" },
         "preload": { "type": "string", "enum": ["auto", "always", "never"] },
+        "pruneOldRevisions": { "type": "boolean" },
         "mountPath": { "type": "string" },
         "hfTokenSecret": { "type": "string" },
         "allowEphemeralWithHpa": { "type": "boolean" },

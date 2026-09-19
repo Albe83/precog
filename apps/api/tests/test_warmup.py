@@ -107,3 +107,42 @@ def test_failure_is_tolerated_when_not_required(
 def test_model_cache_path_uses_setting(tmp_path: Path) -> None:
     settings = Settings(cache_dir=str(tmp_path))
     assert warmup.model_cache_path(settings) == tmp_path
+
+
+def _fake_repo(root: Path, revisions: list[str]) -> Path:
+    repo = root / f"models--{MODEL_ID.replace('/', '--')}"
+    (repo / "blobs").mkdir(parents=True)
+    (repo / "snapshots").mkdir()
+    for revision in revisions:
+        blob = repo / "blobs" / f"{revision}.bin"
+        blob.write_text("x")
+        snapshot = repo / "snapshots" / revision
+        snapshot.mkdir()
+        (snapshot / "config.json").write_text("{}")
+        (snapshot / "model.safetensors").symlink_to(blob)
+    return repo
+
+
+def test_prune_cache_keeps_pinned_revision(tmp_path: Path) -> None:
+    kept, dropped = "a" * 40, "b" * 40
+    repo = _fake_repo(tmp_path, [kept, dropped])
+    settings = Settings(cache_dir=str(tmp_path), model_id=MODEL_ID, model_revision=kept)
+
+    removed = warmup.prune_cache(settings)
+
+    assert removed == 1
+    assert (repo / "snapshots" / kept).is_dir()
+    assert not (repo / "snapshots" / dropped).exists()
+    assert (repo / "blobs" / f"{kept}.bin").exists()
+    assert not (repo / "blobs" / f"{dropped}.bin").exists()
+
+
+def test_prune_cache_skips_without_pinned_commit(tmp_path: Path) -> None:
+    _fake_repo(tmp_path, ["a" * 40])
+    settings = Settings(cache_dir=str(tmp_path), model_id=MODEL_ID, model_revision="main")
+    assert warmup.prune_cache(settings) == 0
+
+
+def test_prune_cache_missing_repo(tmp_path: Path) -> None:
+    settings = Settings(cache_dir=str(tmp_path), model_id=MODEL_ID, model_revision="a" * 40)
+    assert warmup.prune_cache(settings) == 0
