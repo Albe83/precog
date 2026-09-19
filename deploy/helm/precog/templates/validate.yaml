@@ -1,3 +1,6 @@
+{{- if and .Values.httpRoute.enabled (not .Values.httpRoute.parentRefs) }}
+{{- fail "httpRoute.enabled requires httpRoute.parentRefs" }}
+{{- end }}
 {{- if and .Values.config.apiKey .Values.config.existingSecret }}
 {{- fail "set either config.apiKey or config.existingSecret, not both" }}
 {{- end }}

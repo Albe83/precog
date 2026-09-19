@@ -66,6 +66,20 @@ jobs:
             --set networkPolicy.mcp.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=agentgateway \
             --set networkPolicy.api.ingress[0].from[0].podSelector.matchLabels.app\.kubernetes\.io/name=precog-mcp \
             --set mcp.enabled=true >/dev/null
+          helm template precog "$chart" \
+            --set httpRoute.enabled=true \
+            --set httpRoute.parentRefs[0].name=private-corporate \
+            --set httpRoute.parentRefs[0].namespace=gateway-system \
+            --set httpRoute.api.enabled=true \
+            --set mcp.enabled=true >/dev/null
+
+      - name: guard (httpRoute requires parentRefs)
+        run: |
+          set -euo pipefail
+          if helm template precog deploy/helm/precog --set httpRoute.enabled=true >/dev/null 2>&1; then
+            echo "::error::expected helm template to fail for httpRoute without parentRefs"
+            exit 1
+          fi
 
       - name: guard (downloadJob requires a persistent cache)
         run: |

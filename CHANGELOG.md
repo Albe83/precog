@@ -140,6 +140,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Helm: optional HTTPRoute (Gateway API) template (`httpRoute.*`, disabled by
+  default) to publish the MCP endpoint at `/mcp` and optionally the REST API.
 - Helm: optional NetworkPolicy templates (`networkPolicy.*`, disabled by
   default) for the API and MCP, with per-workload ingress/egress and a common
   egress fallback.

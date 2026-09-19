@@ -1,0 +1,41 @@
+{{- if .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "precog.fullname" . }}
+  labels:
+    {{- include "precog.labels" . | nindent 4 }}
+    {{- with .Values.httpRoute.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml .Values.httpRoute.parentRefs | nindent 4 }}
+  {{- with .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if .Values.httpRoute.mcp.enabled }}
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.mcp.pathType }}
+            value: {{ .Values.httpRoute.mcp.path }}
+      backendRefs:
+        - name: {{ include "precog.fullname" . }}-mcp
+          port: {{ .Values.mcp.service.port }}
+    {{- end }}
+    {{- if .Values.httpRoute.api.enabled }}
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.api.pathType }}
+            value: {{ .Values.httpRoute.api.path }}
+      backendRefs:
+        - name: {{ include "precog.fullname" . }}
+          port: {{ .Values.service.port }}
+    {{- end }}
+{{- end }}
