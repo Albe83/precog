@@ -202,7 +202,11 @@ calibration guarantee.
         "mae": 0.9,
         "rmse": 1.03,
         "smape": 2.0,
-        "coverage": { "lower": 0.1, "upper": 0.9, "percent": 66.66666666666666 }
+        "coverage": {
+          "lower_quantile": 0.1,
+          "upper_quantile": 0.9,
+          "percent": 66.66666666666666
+        }
       }
     }
   ],

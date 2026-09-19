@@ -347,7 +347,9 @@ def _coverage(actual: list[float], quantiles: Mapping[str, list[float]]) -> Inte
     below = quantiles[quantile_key(lower)]
     above = quantiles[quantile_key(upper)]
     inside = sum(1 for a, low, high in zip(actual, below, above, strict=True) if low <= a <= high)
-    return IntervalCoverage(lower=lower, upper=upper, percent=100.0 * inside / len(actual))
+    return IntervalCoverage(
+        lower_quantile=lower, upper_quantile=upper, percent=100.0 * inside / len(actual)
+    )
 
 
 def _finite_vector(values: list[float], expected: int, *, label: str) -> list[float]:
