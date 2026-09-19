@@ -132,6 +132,18 @@ helm test precog -n precog
 --set metrics.serviceMonitor.labels.release=kube-prometheus-stack
 ```
 
+Mount a corporate CA (TLS inspection) and point Python at it:
+
+```bash
+--set extraVolumes[0].name=corp-ca \
+--set extraVolumes[0].secret.secretName=corp-ca \
+--set extraVolumeMounts[0].name=corp-ca \
+--set extraVolumeMounts[0].mountPath=/etc/ssl/certs/corp-ca.crt \
+--set extraVolumeMounts[0].subPath=ca.crt \
+--set extraEnv[0].name=SSL_CERT_FILE \
+--set extraEnv[0].value=/etc/ssl/certs/corp-ca.crt
+```
+
 ## Access
 
 ```bash
@@ -160,6 +172,10 @@ helm uninstall precog -n precog
 | `nodeSelector` | map | `{}` | Pod node selector. |
 | `tolerations` | list | `[]` | Pod tolerations. |
 | `affinity` | map | `{}` | Pod affinity. |
+| `extraEnv` | list | `[]` | Extra env vars on the API, MCP, download initContainer and Job. |
+| `extraEnvFrom` | list | `[]` | Extra `envFrom` sources (ConfigMap/Secret) on those containers. |
+| `extraVolumes` | list | `[]` | Extra pod volumes (e.g. a corporate CA Secret). |
+| `extraVolumeMounts` | list | `[]` | Extra volume mounts on those containers. |
 
 ### Image
 

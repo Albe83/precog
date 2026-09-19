@@ -58,11 +58,21 @@ spec:
                   name: {{ .Values.modelCache.hfTokenSecret }}
                   key: hf-token
             {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: model-cache
               mountPath: {{ .Values.modelCache.mountPath }}
             - name: tmp
               mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.modelCache.downloadInitContainer.resources | nindent 12 }}
           securityContext:
@@ -82,6 +92,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "precog.fullname" . }}
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           env:
             - name: PRECOG_MODEL_ID
               value: {{ .Values.modelCache.modelId | quote }}
@@ -106,6 +119,9 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.modelCache.hfTokenSecret }}
                   key: hf-token
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
           startupProbe:
             httpGet:
@@ -136,6 +152,9 @@ spec:
               mountPath: {{ .Values.modelCache.mountPath }}
             - name: tmp
               mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: model-cache
           {{- if eq (include "precog.modelCache.persistenceEnabled" .) "true" }}
@@ -146,6 +165,9 @@ spec:
           {{- end }}
         - name: tmp
           emptyDir: {}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
