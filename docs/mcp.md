@@ -1,7 +1,7 @@
 # MCP server
 
-`apps/mcp` exposes Precog forecasting as MCP tools. It talks to the REST API
-over HTTP and contains no model weights.
+`apps/mcp` exposes Precog forecasting as MCP tools and a semantic capabilities
+resource. It talks to the REST API over HTTP and contains no model weights.
 
 The architectural role of the MCP server — the agent-facing semantic interface,
 with the REST API as its execution dependency — is recorded in
@@ -253,6 +253,76 @@ containing nominal error fields.
 Here the last three target values are the holdout, the last three
 `request_rate` values are ignored, and `maintenance_window`'s last three values
 are forwarded as known-future inputs.
+
+## Resource: `precog://capabilities`
+
+The server exposes one MCP resource, `precog://capabilities`
+(`application/json`), describing the **semantic** capabilities of this MCP
+server: which operations an agent can ask for and which Precog-level limits
+apply. It is intended for discovery before the first call.
+
+This is deliberately **not** a mirror of the REST `GET /v1/capabilities`
+endpoint. The MCP resource translates the execution API's information into the
+semantic contract and drops backend/execution fields (engine, device, execution
+mode, per-forward-pass variate limits, covariate packing, calibration knobs,
+...). A backend concept is published here only when it is a meaningful
+Precog-level constraint for the caller.
+
+### Schema
+
+| Field | Type | Meaning |
+| ----- | ---- | ------- |
+| `forecast.supported` | boolean | The `forecast` tool is available |
+| `forecast.multiple_targets` | boolean | Multiple targets are forecast jointly |
+| `forecast.past_covariates` | boolean | Historical-only covariates are supported |
+| `forecast.known_future_covariates` | boolean | Already-known future covariates are supported |
+| `forecast.probabilistic_forecast` | boolean | Quantiles can be requested |
+| `backtest.supported` | boolean | The `backtest` tool is available |
+| `backtest.metrics` | array of strings | Metrics returned per target |
+| `backtest.interval_coverage` | boolean | Outer-interval coverage can be returned |
+| `limits.max_horizon` | integer or `null` | Maximum `horizon` in steps |
+| `limits.max_context_length` | integer or `null` | Maximum accepted context length per series |
+| `limits.quantile_levels` | array of numbers | Supported quantile levels |
+
+Only limits that are meaningful to the caller as Precog-level constraints are
+advertised. Combinatory execution limits (targets plus covariates per forward
+pass) are intentionally not exposed; a request that exceeds the effective
+backend capability fails with `FORECAST_REJECTED` rather than being silently
+adapted.
+
+### Limits availability
+
+The semantic capability flags and the supported quantile levels are part of the
+MCP contract and are always present. `max_horizon` and `max_context_length` are
+derived from the execution API's effective limits. If the API cannot be
+consulted, the resource still succeeds and returns `null` for those two fields:
+the caller then discovers limits through stable tool errors (`FORECAST_REJECTED`)
+instead of assuming a value. The resource never returns raw upstream error
+bodies or infrastructure details.
+
+### Example response
+
+```json
+{
+  "forecast": {
+    "supported": true,
+    "multiple_targets": true,
+    "past_covariates": true,
+    "known_future_covariates": true,
+    "probabilistic_forecast": true
+  },
+  "backtest": {
+    "supported": true,
+    "metrics": ["mae", "rmse", "smape"],
+    "interval_coverage": true
+  },
+  "limits": {
+    "max_horizon": 1024,
+    "max_context_length": 15360,
+    "quantile_levels": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  }
+}
+```
 
 ## Errors
 

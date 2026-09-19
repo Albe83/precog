@@ -72,8 +72,14 @@ class ForecastApiClient:
         await self._client.aclose()
 
     async def forecast(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._request("POST", "/v1/forecast", json=payload)
+
+    async def capabilities(self) -> dict[str, Any]:
+        return await self._request("GET", "/v1/capabilities")
+
+    async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         try:
-            response = await self._client.post("/v1/forecast", json=payload)
+            response = await self._client.request(method, path, **kwargs)
         except httpx.HTTPError as exc:
             # Transport diagnostics (internal hosts, URLs, TLS/proxy details)
             # stay in logs; consumers get a stable sanitized message.

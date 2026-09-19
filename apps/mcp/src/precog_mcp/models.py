@@ -275,11 +275,52 @@ class BacktestResult(_StrictModel):
     warnings: list[ForecastWarning] = Field(default_factory=list)
 
 
+class ForecastCapability(_StrictModel):
+    """Semantic features available through the ``forecast`` tool."""
+
+    supported: bool
+    multiple_targets: bool
+    past_covariates: bool
+    known_future_covariates: bool
+    probabilistic_forecast: bool
+
+
+class BacktestCapability(_StrictModel):
+    """Semantic features available through the ``backtest`` tool."""
+
+    supported: bool
+    metrics: list[str]
+    interval_coverage: bool
+
+
+class PublicLimits(_StrictModel):
+    """Precog-level limits meaningful to an MCP caller.
+
+    ``max_horizon`` and ``max_context_length`` are ``None`` when the execution
+    API could not be consulted: the caller then discovers the effective limits
+    through stable tool errors rather than an assumed value.
+    """
+
+    max_horizon: int | None = None
+    max_context_length: int | None = None
+    quantile_levels: list[float]
+
+
+class SemanticCapabilities(_StrictModel):
+    """The semantic capabilities resource exposed at ``precog://capabilities``."""
+
+    forecast: ForecastCapability
+    backtest: BacktestCapability
+    limits: PublicLimits
+
+
 __all__ = [
+    "BacktestCapability",
     "BacktestMetrics",
     "BacktestResult",
     "BacktestToolRequest",
     "FiniteFloat",
+    "ForecastCapability",
     "ForecastResult",
     "ForecastToolRequest",
     "ForecastWarning",
@@ -287,6 +328,8 @@ __all__ = [
     "IntervalCoverage",
     "KnownFutureSeries",
     "ModelProvenance",
+    "PublicLimits",
+    "SemanticCapabilities",
     "TargetBacktest",
     "TargetForecast",
     "quantile_key",

@@ -13,6 +13,7 @@ from precog_mcp.adapter import (
     execute_backtest,
     execute_forecast,
 )
+from precog_mcp.capabilities import load_capabilities
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.errors import (
@@ -28,6 +29,7 @@ from precog_mcp.models import (
     ForecastToolRequest,
     HistoricalSeries,
     KnownFutureSeries,
+    SemanticCapabilities,
 )
 from precog_mcp.observability import metrics_handler
 from precog_mcp.tracing import setup_tracing
@@ -64,12 +66,17 @@ BACKTEST_TOOL_DESCRIPTION = (
     "the median. It is a single window, not a rolling backtest."
 )
 
+CAPABILITIES_DESCRIPTION = (
+    "Semantic operations and Precog-level public limits supported by this MCP "
+    "server, independent from backend/execution details."
+)
+
 
 def create_server(
     settings: Settings | None = None,
     client: ForecastApiClient | None = None,
 ) -> MCPServer:
-    """Build the MCP server with the ``forecast`` tool."""
+    """Build the MCP server with the ``forecast`` and ``backtest`` tools."""
     settings = settings or Settings()
     client = client or ForecastApiClient(
         settings.api_url, settings.api_key, settings.request_timeout_s
@@ -138,5 +145,15 @@ def create_server(
             return await execute_backtest(client, request)
         except ForecastAdapterError as exc:
             raise ToolError(adapter_error_envelope(exc)) from exc
+
+    @server.resource(
+        "precog://capabilities",
+        name="capabilities",
+        title="Precog semantic capabilities",
+        description=CAPABILITIES_DESCRIPTION,
+        mime_type="application/json",
+    )
+    async def capabilities_resource() -> SemanticCapabilities:
+        return await load_capabilities(client)
 
     return server
