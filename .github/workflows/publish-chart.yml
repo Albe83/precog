@@ -69,9 +69,11 @@ jobs:
 
           # Chart version is the SemVer value without the leading "v".
           version="${tag#v}"
-          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "owner=${GITHUB_REPOSITORY_OWNER,,}"
+            echo "version=$version"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "### publish-chart"
             echo "- release tag: \`$tag\`"
