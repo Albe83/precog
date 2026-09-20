@@ -50,6 +50,28 @@ The CI verifies that no weights are embedded before pushing. **Never** publish
 an image built with `PRECOG_BAKE_WEIGHTS=true`: that variant embeds the
 non-commercial weights and is intended only for local, air-gapped builds.
 
+## Python-native installation (secondary)
+
+OCI images and Helm remain the recommended production deployment path. For
+development, labs, lightweight installs or Python-native environments, the same
+application release is also published to PyPI:
+
+```bash
+APP_VERSION=1.0.0
+pip install "precog-api==$APP_VERSION" "precog-mcp==$APP_VERSION"
+```
+
+The base API package supports the fake engine and does **not** install TimesFM
+or model weights. To install the TimesFM runtime, opt in explicitly:
+
+```bash
+pip install "precog-api[engine]==$APP_VERSION"
+```
+
+The application packages (`precog-api`, `precog-mcp`) follow the application
+SemVer. The execution SDK (`precog-client`, `precog-schemas`) has its own
+independent version train.
+
 ## Build the image
 
 ```bash
