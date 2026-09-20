@@ -18,12 +18,7 @@ from pydantic import BaseModel
 
 from precog_api.config import Settings
 from precog_api.engine import Engine, FakeEngine
-from precog_api.execution import ExecutionProblem, ExecutionResult
-from precog_api.mapping import (
-    UnsupportedExecutionOptionError,
-    to_execution_problems,
-    to_forecast_response,
-)
+from precog_api.mapping import to_execution_problem, to_forecast_response
 from precog_api.observability import (
     FORECAST_SERIES,
     INFLIGHT,
@@ -48,51 +43,49 @@ logger = logging.getLogger("precog.api")
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 FORECAST_EXAMPLES: dict[str, Any] = {
-    "univariate": {
-        "summary": "Univariate series",
+    "targets": {
+        "summary": "Single target with quantiles",
         "value": {
-            "mode": "univariate",
             "horizon": 4,
-            "series": [{"id": "sales", "target": [100, 102, 101, 105, 107, 106, 108, 109]}],
+            "targets": [{"id": "sales", "values": [100, 102, 101, 105, 107, 106, 108, 109]}],
+            "quantiles": [0.1, 0.5, 0.9],
         },
     },
     "covariates": {
-        "summary": "With past-only and past+future covariates",
+        "summary": "Target with past-only and known-future covariates",
         "value": {
-            "mode": "univariate",
             "horizon": 3,
-            "series": [
+            "targets": [{"id": "kiosk", "values": [50, 52, 51, 53, 55, 54, 56, 57]}],
+            "past_covariates": [
+                {"id": "footfall", "values": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35, 0.5, 0.6]}
+            ],
+            "known_future_covariates": [
                 {
-                    "id": "kiosk",
-                    "target": [50, 52, 51, 53, 55, 54, 56, 57],
-                    "past_covariates": {"footfall": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35, 0.5, 0.6]},
-                    "future_covariates": {"promo": [0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0]},
+                    "id": "promo",
+                    "history": [0, 1, 0, 0, 0, 1, 0, 0],
+                    "future": [1, 0, 0],
                 }
             ],
+            "quantiles": [0.1, 0.9],
         },
     },
-    "multivariate": {
-        "summary": "Multivariate targets forecast jointly",
+    "joint_targets": {
+        "summary": "Multiple targets forecast jointly",
         "value": {
-            "mode": "multivariate",
             "horizon": 3,
-            "series": [
-                {"id": "a", "target": [10, 11, 12, 13, 14]},
-                {"id": "b", "target": [20, 21, 22, 23, 24]},
+            "targets": [
+                {"id": "a", "values": [10, 11, 12, 13, 14]},
+                {"id": "b", "values": [20, 21, 22, 23, 24]},
             ],
+            "quantiles": [0.5],
         },
     },
-    "multivariate_covariates": {
-        "summary": "Multivariate targets with request-level covariates",
+    "point_only": {
+        "summary": "Point-only forecast (no quantiles)",
         "value": {
-            "mode": "multivariate",
             "horizon": 3,
-            "series": [
-                {"id": "brand_a", "target": [100, 102, 101, 105, 107, 106]},
-                {"id": "brand_b", "target": [80, 81, 80, 83, 85, 84]},
-            ],
-            "past_covariates": {"footfall": [0.1, 0.2, 0.15, 0.3, 0.4, 0.35]},
-            "future_covariates": {"promo": [0, 1, 0, 0, 0, 1, 0, 1, 0]},
+            "targets": [{"id": "cpu", "values": [1.0, 2.0, 3.0, 4.0, 5.0]}],
+            "quantiles": [],
         },
     },
 }
@@ -153,9 +146,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         version="0.1.0",
         summary="Zero-shot forecasting with TimesFM-3.",
         description=(
-            "Synchronous TimesFM-3 forecasting. "
+            "Synchronous TimesFM-3 execution. "
             f"Limits: horizon <= {settings.max_horizon}, context <= {settings.max_context}, "
-            f"series <= {settings.max_series}. Errors use RFC 7807 "
+            f"targets <= {settings.max_series}. Errors use RFC 7807 "
             "(`application/problem+json`)."
             + (" Bearer authentication is required." if settings.api_key else "")
         ),
@@ -284,7 +277,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         dependencies=[Depends(require_api_key)],
         tags=["forecast"],
         summary="Forecast time series",
-        response_description="Point forecast and 9 quantiles per series.",
+        response_description="Point forecast and the caller-selected quantiles per target.",
         responses={
             401: {"description": "Missing or invalid API key"},
             422: {"description": "Validation error or configured limit exceeded"},
@@ -296,34 +289,27 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         payload: Annotated[ForecastRequest, Body(openapi_examples=FORECAST_EXAMPLES)],
     ) -> ForecastResponse:
         _enforce_limits(payload, settings, app.state.engine)
-        try:
-            problems = to_execution_problems(payload)
-        except UnsupportedExecutionOptionError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        problem = to_execution_problem(payload)
         started = time.perf_counter()
         async with app.state.semaphore:
             try:
-                results = await asyncio.wait_for(
-                    asyncio.to_thread(_predict_all, app.state.engine, problems),
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(app.state.engine.predict, problem),
                     timeout=settings.request_timeout_s,
                 )
             except TimeoutError as exc:
                 raise HTTPException(status_code=504, detail="forecast timed out") from exc
         latency_ms = (time.perf_counter() - started) * 1000
-        FORECAST_SERIES.inc(len(payload.series))
+        FORECAST_SERIES.inc(len(payload.targets))
         return to_forecast_response(
             payload,
-            results,
+            result,
             model=settings.model_name,
+            revision=settings.model_revision,
             latency_ms=round(latency_ms, 3),
         )
 
     return app
-
-
-def _predict_all(engine: Engine, problems: list[ExecutionProblem]) -> list[ExecutionResult]:
-    """Run each compiled execution problem through the engine."""
-    return [engine.predict(problem) for problem in problems]
 
 
 def _client_key(request: Request) -> str:
@@ -353,20 +339,12 @@ def _min_limit(configured: int, engine_limit: int | None) -> int:
 
 
 def _max_unit_variates(payload: ForecastRequest) -> int:
-    """Largest number of variates Precog would send to a single forward pass.
+    """Variates Precog sends to the single forward pass for this problem.
 
-    In multivariate mode all targets and request-level covariates form one joint
-    problem. In univariate mode each series is an independent problem, so the
-    maximum over the per-series target plus its covariates applies.
+    Targets and covariate channels share the same execution budget.
     """
-    if payload.mode is Mode.multivariate:
-        return len(payload.series) + len(payload.past_covariates) + len(payload.future_covariates)
-    return max(
-        (
-            1 + len(series.past_covariates) + len(series.future_covariates)
-            for series in payload.series
-        ),
-        default=0,
+    return (
+        len(payload.targets) + len(payload.past_covariates) + len(payload.known_future_covariates)
     )
 
 
@@ -376,13 +354,13 @@ def _enforce_limits(payload: ForecastRequest, settings: Settings, engine: Engine
             status_code=422,
             detail=f"horizon {payload.horizon} exceeds max {settings.max_horizon}",
         )
-    if len(payload.series) > settings.max_series:
+    if len(payload.targets) > settings.max_series:
         raise HTTPException(
             status_code=422,
-            detail=f"{len(payload.series)} series exceed max {settings.max_series}",
+            detail=f"{len(payload.targets)} targets exceed max {settings.max_series}",
         )
     effective_context = _min_limit(settings.max_context, engine.max_context)
-    longest = max(s.context_len for s in payload.series)
+    longest = max(len(target.values) for target in payload.targets)
     if longest > effective_context:
         raise HTTPException(
             status_code=422,
@@ -391,16 +369,18 @@ def _enforce_limits(payload: ForecastRequest, settings: Settings, engine: Engine
                 "Precog never truncates input to fit the model context"
             ),
         )
-    effective_variates = _min_limit(settings.max_series, engine.max_variates)
-    variates = _max_unit_variates(payload)
-    if variates > effective_variates:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"{variates} variates exceed max {effective_variates}; "
-                "Precog never drops or chunks covariates/targets to fit the model"
-            ),
-        )
+    # The target policy ceiling and the backend execution budget are distinct:
+    # targets + covariate channels share the engine's forward-pass budget.
+    if engine.max_variates is not None:
+        variates = _max_unit_variates(payload)
+        if variates > engine.max_variates:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"{variates} variates exceed max {engine.max_variates}; "
+                    "Precog never drops or chunks covariates/targets to fit the model"
+                ),
+            )
 
 
 def _status_title(status_code: int) -> str:

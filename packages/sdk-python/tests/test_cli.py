@@ -11,8 +11,8 @@ def test_request_from_csv_skips_header(tmp_path) -> None:
     path = tmp_path / "series.csv"
     path.write_text("value\n1\n2\n3\n")
     request = request_from_csv(str(path), horizon=2, series_id="x")
-    assert request.series[0].id == "x"
-    assert request.series[0].target == [1.0, 2.0, 3.0]
+    assert request.targets[0].id == "x"
+    assert request.targets[0].values == [1.0, 2.0, 3.0]
     assert request.horizon == 2
 
 
@@ -25,7 +25,8 @@ def test_request_from_csv_requires_numbers(tmp_path) -> None:
 
 def test_request_from_json(tmp_path) -> None:
     path = tmp_path / "request.json"
-    path.write_text('{"mode":"univariate","horizon":2,"series":[{"id":"a","target":[1,2,3]}]}')
+    path.write_text('{"horizon":2,"targets":[{"id":"a","values":[1,2,3]}],"quantiles":[0.5]}')
     request = request_from_json(str(path))
     assert request.horizon == 2
-    assert request.series[0].target == [1.0, 2.0, 3.0]
+    assert request.targets[0].values == [1.0, 2.0, 3.0]
+    assert request.quantiles == [0.5]

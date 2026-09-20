@@ -64,21 +64,22 @@ def _forecast_result(
 
 def _rest_payload(ids: list[str], horizon: int, forecast: list[float]) -> dict[str, Any]:
     return {
-        "model": "timesfm-3.0",
         "horizon": horizon,
-        "quantile_levels": list(QUANTILE_LEVELS),
-        "results": [
+        "targets": [
             {
                 "id": series_id,
                 "forecast": forecast,
-                # Canonical REST orientation: one row per step, columns by level.
                 "quantiles": [
-                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
-                    for row in range(horizon)
+                    {
+                        "level": level,
+                        "values": [float(row + column) for row in range(horizon)],
+                    }
+                    for column, level in enumerate(QUANTILE_LEVELS)
                 ],
             }
             for series_id in ids
         ],
+        "model": {"id": "timesfm-3.0", "revision": None},
         "usage": {"latency_ms": 1.0, "context_len": 3},
     }
 
@@ -182,7 +183,7 @@ def test_execute_backtest_reuses_the_forecast_path() -> None:
     result = asyncio.run(execute_backtest(_client(handler), _request()))
 
     body = seen["body"]
-    assert body["series"][0]["target"] == [1.0, 2.0, 3.0]
+    assert body["targets"][0]["values"] == [1.0, 2.0, 3.0]
     assert body["horizon"] == HORIZON
     target = result.targets[0]
     assert target.actual == ACTUAL

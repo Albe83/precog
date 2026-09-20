@@ -7,10 +7,10 @@ The architectural role of the MCP server — the agent-facing semantic interface
 with the REST API as its execution dependency — is recorded in
 [ADR 0005](adr/0005-mcp-semantic-boundary.md).
 
-> **Breaking change (MCP only).** The `forecast` tool uses a new consumer-facing
-> contract. The REST API (`POST /v1/forecast`), the shared `precog_schemas`
-> models and the Python/TypeScript SDKs are unchanged; only the MCP surface
-> moved to the model-independent contract below.
+> **Execution API cutover.** The REST execution API now uses the canonical
+> contract from ADR 0006 (`targets` / `past_covariates` /
+> `known_future_covariates` / explicit `quantiles`). The MCP public tool
+> contract below is unchanged; only the adapter mapping is simpler.
 
 ## What Precog does and does not do
 
@@ -434,8 +434,9 @@ one request: every `targets` entry in a request is forecast jointly.
 | nominal `{ "error": ... }` | MCP tool errors with stable codes |
 | `forecast_batch` tool | removed; use separate `forecast` calls |
 
-This change is MCP-only. The REST request/response shapes and the SDKs keep
-their current contract.
+This migration was MCP-only at the time. The REST execution API has since been
+cut over to the same canonical shape (ADR 0006 / #178); the MCP contract above
+is unchanged, and the adapter now maps it structurally onto the execution API.
 
 ## Run locally (stdio)
 

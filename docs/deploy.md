@@ -64,7 +64,7 @@ Swap the volume for an anonymous volume or a bind mount if you prefer.
 
 ```bash
 curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d \
-  '{"mode":"univariate","horizon":4,"series":[{"id":"a","target":[1,2,3,4,5]}]}'
+  '{"horizon":4,"targets":[{"id":"a","values":[1,2,3,4,5]}],"quantiles":[0.1,0.9]}'
 ```
 
 ## Kubernetes (Helm, recommended)

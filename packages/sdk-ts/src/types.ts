@@ -1,32 +1,38 @@
 export type Mode = "univariate" | "multivariate";
 
-export interface SeriesInput {
+export interface HistoricalSeries {
   id: string;
-  target: number[];
-  past_covariates?: Record<string, number[]>;
-  future_covariates?: Record<string, number[]>;
+  values: number[];
 }
 
-export interface ForecastOptions {
-  return_quantiles?: boolean;
-  symmetric_averaging?: boolean;
-  quantile_spread_scale?: number;
-  interpolate_missing?: boolean;
+export interface KnownFutureSeries {
+  id: string;
+  history: number[];
+  future: number[];
 }
 
 export interface ForecastRequest {
-  mode?: Mode;
   horizon: number;
-  series: SeriesInput[];
-  options?: ForecastOptions;
-  past_covariates?: Record<string, number[]>;
-  future_covariates?: Record<string, number[]>;
+  targets: HistoricalSeries[];
+  past_covariates?: HistoricalSeries[];
+  known_future_covariates?: KnownFutureSeries[];
+  quantiles?: number[];
 }
 
-export interface SeriesForecast {
+export interface QuantileForecast {
+  level: number;
+  values: number[];
+}
+
+export interface TargetForecast {
   id: string;
   forecast: number[];
-  quantiles?: number[][] | null;
+  quantiles?: QuantileForecast[];
+}
+
+export interface ModelProvenance {
+  id: string;
+  revision?: string | null;
 }
 
 export interface Usage {
@@ -35,10 +41,9 @@ export interface Usage {
 }
 
 export interface ForecastResponse {
-  model: string;
   horizon: number;
-  quantile_levels: number[];
-  results: SeriesForecast[];
+  targets: TargetForecast[];
+  model: ModelProvenance;
   usage: Usage;
 }
 

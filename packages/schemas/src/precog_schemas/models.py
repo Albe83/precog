@@ -5,147 +5,146 @@ from __future__ import annotations
 import math
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 
-def _require_finite(values: list[float], label: str, *, allow_interior: bool) -> None:
-    """Reject NaN/Inf; with ``allow_interior`` only interior gaps are accepted."""
-    if all(math.isfinite(value) for value in values):
-        return
-    if allow_interior and math.isfinite(values[0]) and math.isfinite(values[-1]):
-        return
-    raise ValueError(f"{label} contains non-finite values (NaN/Inf)")
+class _StrictRequestModel(BaseModel):
+    """Base for request DTOs: removed/unknown fields must fail closed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+def _require_finite(values: list[float], label: str) -> None:
+    """Reject NaN/Inf: Precog never cleans or interpolates caller data."""
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError(f"{label} contains non-finite values (NaN/Inf)")
 
 
 class Mode(StrEnum):
-    """Whether each series is forecast independently or jointly."""
+    """Whether each series is forecast independently or jointly.
+
+    Retained for the execution capabilities endpoint until #179 replaces it.
+    """
 
     univariate = "univariate"
     multivariate = "multivariate"
 
 
-class SeriesInput(BaseModel):
-    """One target series with optional past-only and past-and-future covariates."""
+class HistoricalSeries(_StrictRequestModel):
+    """One target or past-only covariate series, ordered oldest to newest."""
 
     id: str = Field(min_length=1)
-    target: list[float] = Field(min_length=1)
-    past_covariates: dict[str, list[float]] = Field(default_factory=dict)
-    future_covariates: dict[str, list[float]] = Field(default_factory=dict)
+    values: list[float] = Field(min_length=1)
+
+
+class KnownFutureSeries(_StrictRequestModel):
+    """A covariate whose historical and future values are both known."""
+
+    id: str = Field(min_length=1)
+    history: list[float] = Field(min_length=1)
+    future: list[float] = Field(min_length=1)
 
     @property
     def context_len(self) -> int:
-        return len(self.target)
+        return len(self.history)
 
 
-class ForecastOptions(BaseModel):
-    """Toggles forwarded to the underlying model."""
+class ForecastRequest(_StrictRequestModel):
+    """Canonical execution request (ADR 0006).
 
-    return_quantiles: bool = True
-    symmetric_averaging: bool = False
-    # Scale the quantile spread around the median (1.0 = model output). Values
-    # above 1 widen the prediction intervals; useful to correct under-coverage
-    # on very stable series.
-    quantile_spread_scale: float = Field(default=1.0, gt=0, le=10)
-    # Fill interior gaps (NaN) in targets/covariates by linear interpolation.
-    # Leading/trailing NaNs are always rejected.
-    interpolate_missing: bool = False
-
-
-class ForecastRequest(BaseModel):
-    """A synchronous forecast request.
-
-    In univariate mode covariates are attached to each series. In multivariate
-    mode every series is a target variate of one joint context and covariates
-    are declared once at request level.
+    Targets are forecast jointly. ``past_covariates`` are known only during the
+    historical context; ``known_future_covariates`` carry both the history and
+    the already-known future values. ``quantiles`` lists the requested levels;
+    an empty list means point-only output.
     """
 
-    mode: Mode = Mode.univariate
     horizon: int = Field(gt=0)
-    series: list[SeriesInput] = Field(min_length=1)
-    options: ForecastOptions = Field(default_factory=ForecastOptions)
-    # Request-level covariates, used in multivariate mode.
-    past_covariates: dict[str, list[float]] = Field(default_factory=dict)
-    future_covariates: dict[str, list[float]] = Field(default_factory=dict)
+    targets: list[HistoricalSeries] = Field(min_length=1)
+    past_covariates: list[HistoricalSeries] = Field(default_factory=list)
+    known_future_covariates: list[KnownFutureSeries] = Field(default_factory=list)
+    quantiles: list[float] = Field(default_factory=list)
+
+    @field_validator("quantiles")
+    @classmethod
+    def _validate_quantiles(cls, levels: list[float]) -> list[float]:
+        seen: set[float] = set()
+        for level in levels:
+            if level not in QUANTILE_LEVELS:
+                allowed = ", ".join(f"{value:.1f}" for value in QUANTILE_LEVELS)
+                raise ValueError(f"unsupported quantile {level}; allowed values: {allowed}")
+            if level in seen:
+                raise ValueError(f"duplicate quantile {level}")
+            seen.add(level)
+        return levels
 
     @model_validator(mode="after")
-    def _check_series(self) -> ForecastRequest:
-        lengths = {s.context_len for s in self.series}
-        if self.mode is Mode.multivariate and len(lengths) > 1:
-            raise ValueError("all series must share the same context length in multivariate mode")
+    def _check_consistency(self) -> ForecastRequest:
+        context = len(self.targets[0].values)
+        for target in self.targets[1:]:
+            if len(target.values) != context:
+                raise ValueError("all target series must share the same context length")
 
-        if self.mode is Mode.multivariate:
-            context = self.series[0].context_len
-            for series in self.series:
-                if series.past_covariates or series.future_covariates:
-                    raise ValueError(
-                        "in multivariate mode use request-level past_covariates/"
-                        "future_covariates, not per-series covariates"
-                    )
-            for name, values in self.past_covariates.items():
-                if len(values) != context:
-                    raise ValueError(
-                        f"past covariate '{name}' must match context ({len(values)} != {context})"
-                    )
-            for name, values in self.future_covariates.items():
-                expected = context + self.horizon
-                if len(values) != expected:
-                    raise ValueError(
-                        f"future covariate '{name}' must match context + horizon "
-                        f"({len(values)} != {expected})"
-                    )
-        elif self.past_covariates or self.future_covariates:
-            raise ValueError(
-                "request-level covariates are only supported in multivariate mode; "
-                "attach covariates to each series in univariate mode"
-            )
-        else:
-            for series in self.series:
-                for name, values in series.past_covariates.items():
-                    if len(values) != series.context_len:
-                        raise ValueError(
-                            f"past covariate '{name}' must match context "
-                            f"({len(values)} != {series.context_len})"
-                        )
-                for name, values in series.future_covariates.items():
-                    expected = series.context_len + self.horizon
-                    if len(values) != expected:
-                        raise ValueError(
-                            f"future covariate '{name}' must match context + horizon "
-                            f"({len(values)} != {expected})"
-                        )
+        ids: set[str] = set()
+        series_ids = (
+            [target.id for target in self.targets]
+            + [past.id for past in self.past_covariates]
+            + [known.id for known in self.known_future_covariates]
+        )
+        for series_id in series_ids:
+            if series_id in ids:
+                raise ValueError(f"duplicate series id '{series_id}'; ids must be globally unique")
+            ids.add(series_id)
 
-        allow_interior = self.options.interpolate_missing
-        for series in self.series:
-            _require_finite(
-                series.target, f"target of '{series.id}'", allow_interior=allow_interior
-            )
-            for name, values in series.past_covariates.items():
-                _require_finite(
-                    values,
-                    f"past covariate '{name}' of '{series.id}'",
-                    allow_interior=allow_interior,
+        for past in self.past_covariates:
+            if len(past.values) != context:
+                raise ValueError(
+                    f"past covariate '{past.id}' must match the target context "
+                    f"({len(past.values)} != {context})"
                 )
-            for name, values in series.future_covariates.items():
-                _require_finite(
-                    values,
-                    f"future covariate '{name}' of '{series.id}'",
-                    allow_interior=allow_interior,
+        for known in self.known_future_covariates:
+            if len(known.history) != context:
+                raise ValueError(
+                    f"known-future covariate '{known.id}' history must match the target "
+                    f"context ({len(known.history)} != {context})"
                 )
-        for name, values in self.past_covariates.items():
-            _require_finite(values, f"past covariate '{name}'", allow_interior=allow_interior)
-        for name, values in self.future_covariates.items():
-            _require_finite(values, f"future covariate '{name}'", allow_interior=allow_interior)
+            if len(known.future) != self.horizon:
+                raise ValueError(
+                    f"known-future covariate '{known.id}' future must match the horizon "
+                    f"({len(known.future)} != {self.horizon})"
+                )
+
+        for target in self.targets:
+            _require_finite(target.values, f"target '{target.id}'")
+        for past in self.past_covariates:
+            _require_finite(past.values, f"past covariate '{past.id}'")
+        for known in self.known_future_covariates:
+            _require_finite(known.history, f"known-future covariate '{known.id}' history")
+            _require_finite(known.future, f"known-future covariate '{known.id}' future")
         return self
 
 
-class SeriesForecast(BaseModel):
-    """Point forecast and optional quantiles for one target series."""
+class QuantileForecast(BaseModel):
+    """One requested quantile level and its values for a target."""
+
+    level: float
+    values: list[float]
+
+
+class TargetForecast(BaseModel):
+    """Point forecast and requested quantiles for one target series."""
 
     id: str
     forecast: list[float]
-    quantiles: list[list[float]] | None = None
+    quantiles: list[QuantileForecast] = Field(default_factory=list)
+
+
+class ModelProvenance(BaseModel):
+    """Configured model identity and revision when known."""
+
+    id: str
+    revision: str | None = None
 
 
 class Usage(BaseModel):
@@ -156,17 +155,20 @@ class Usage(BaseModel):
 
 
 class ForecastResponse(BaseModel):
-    """The result of a synchronous forecast."""
+    """The result of a synchronous execution request (ADR 0006)."""
 
-    model: str
     horizon: int
-    quantile_levels: list[float]
-    results: list[SeriesForecast]
+    targets: list[TargetForecast]
+    model: ModelProvenance
     usage: Usage
 
 
 class Capabilities(BaseModel):
-    """Model and API contract advertised to clients."""
+    """Model and API contract advertised to clients.
+
+    Execution/runtime discovery is redesigned in #179; this legacy shape stays
+    for now.
+    """
 
     model: str
     model_id: str

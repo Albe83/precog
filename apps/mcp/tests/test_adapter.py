@@ -17,7 +17,6 @@ from precog_mcp.adapter import (
 )
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.models import ForecastToolRequest
-from precog_schemas import QUANTILE_LEVELS, Mode
 
 pytestmark = pytest.mark.unit
 
@@ -38,97 +37,80 @@ def _rest_payload(
     horizon: int = 3,
     *,
     levels: list[float] | None = None,
-    quantiles: list[list[float]] | None = None,
+    quantiles: list[Any] | None = None,
     model: str = "timesfm-3.0",
     forecast: list[float] | None = None,
 ) -> dict[str, Any]:
-    levels = list(QUANTILE_LEVELS) if levels is None else levels
-    results = []
-    for series_id in ids:
-        series_quantiles = quantiles
-        if series_quantiles is None:
-            # Canonical REST orientation: one row per future step, columns in
-            # ``quantile_levels`` order.
-            series_quantiles = [
-                [float(row * 10 + column) for column in range(len(levels))]
-                for row in range(horizon)
+    levels = [0.1, 0.9] if levels is None else levels
+    targets = []
+    for target_id in ids:
+        target_quantiles = quantiles
+        if target_quantiles is None:
+            target_quantiles = [
+                {
+                    "level": level,
+                    "values": [float(row * 10 + column) for row in range(horizon)],
+                }
+                for column, level in enumerate(levels)
             ]
-        results.append(
+        targets.append(
             {
-                "id": series_id,
+                "id": target_id,
                 "forecast": forecast if forecast is not None else [1.0] * horizon,
-                "quantiles": series_quantiles,
+                "quantiles": target_quantiles,
             }
         )
     return {
-        "model": model,
         "horizon": horizon,
-        "quantile_levels": levels,
-        "results": results,
+        "targets": targets,
+        "model": {"id": model, "revision": None},
         "usage": {"latency_ms": 1.0, "context_len": len(TARGET_CONTEXT)},
     }
 
 
-def test_single_target_maps_to_univariate_with_per_series_covariates() -> None:
+def test_request_maps_structurally_to_the_execution_contract() -> None:
     request = _request(
         past_covariates=[{"id": "request_rate", "values": [1, 2, 3, 4, 5, 6]}],
         known_future_covariates=[
             {"id": "maintenance", "history": [0, 0, 0, 0, 0, 0], "future": [0, 1, 1]}
         ],
+        quantiles=[0.1, 0.9],
     )
     rest = to_rest_request(request)
-    assert rest.mode is Mode.univariate
-    assert len(rest.series) == 1
-    assert rest.series[0].id == "cpu_usage"
-    assert rest.series[0].target == TARGET_CONTEXT
-    assert rest.series[0].past_covariates == {"request_rate": [1, 2, 3, 4, 5, 6]}
-    assert rest.series[0].future_covariates == {"maintenance": [0, 0, 0, 0, 0, 0, 0, 1, 1]}
-    assert rest.past_covariates == {}
-    assert rest.options.return_quantiles is True
+    assert [target.id for target in rest.targets] == ["cpu_usage"]
+    assert rest.targets[0].values == TARGET_CONTEXT
+    assert [covariate.id for covariate in rest.past_covariates] == ["request_rate"]
+    known = rest.known_future_covariates[0]
+    assert known.history == [0, 0, 0, 0, 0, 0]
+    assert known.future == [0, 1, 1]
+    assert rest.quantiles == [0.1, 0.9]
 
 
-def test_multiple_targets_map_to_multivariate_with_request_level_covariates() -> None:
+def test_multiple_targets_map_structurally() -> None:
     request = _request(
         targets=[
             {"id": "web_requests", "values": [100, 120, 125, 140, 150, 160]},
             {"id": "cpu_usage", "values": list(TARGET_CONTEXT)},
         ],
         past_covariates=[{"id": "request_rate", "values": [1, 2, 3, 4, 5, 6]}],
-        known_future_covariates=[
-            {"id": "maintenance", "history": [0, 0, 0, 0, 0, 0], "future": [0, 1, 1]}
-        ],
     )
     rest = to_rest_request(request)
-    assert rest.mode is Mode.multivariate
-    assert [series.id for series in rest.series] == ["web_requests", "cpu_usage"]
-    assert all(series.past_covariates == {} for series in rest.series)
-    assert all(series.future_covariates == {} for series in rest.series)
-    assert rest.past_covariates == {"request_rate": [1, 2, 3, 4, 5, 6]}
-    assert rest.future_covariates == {"maintenance": [0, 0, 0, 0, 0, 0, 0, 1, 1]}
+    assert [target.id for target in rest.targets] == ["web_requests", "cpu_usage"]
+    assert [covariate.id for covariate in rest.past_covariates] == ["request_rate"]
 
 
 def test_response_selects_requested_quantiles_by_level() -> None:
     request = _request(quantiles=[0.9, 0.1])
-    levels = [0.5, 0.1, 0.9]
-    # Three horizon rows, columns in ``levels`` order: [q0.5, q0.1, q0.9].
-    quantiles = [[5.0, 1.0, 9.0], [5.0, 2.0, 8.0], [5.0, 3.0, 7.0]]
-    result = from_rest_response(
-        request, _rest_payload(["cpu_usage"], levels=levels, quantiles=quantiles)
-    )
+    quantiles = [
+        {"level": 0.9, "values": [9.0, 8.0, 7.0]},
+        {"level": 0.1, "values": [1.0, 2.0, 3.0]},
+        {"level": 0.5, "values": [5.0, 5.0, 5.0]},
+    ]
+    result = from_rest_response(request, _rest_payload(["cpu_usage"], quantiles=quantiles))
     target = result.targets[0]
     assert list(target.quantiles) == ["0.9", "0.1"]
     assert target.quantiles["0.9"] == [9.0, 8.0, 7.0]
     assert target.quantiles["0.1"] == [1.0, 2.0, 3.0]
-
-
-def test_non_square_quantile_matrix_maps_by_level() -> None:
-    # horizon (3) != number of levels (9), so a transposed interpretation would
-    # either fail or silently swap axes.
-    request = _request(quantiles=[0.1, 0.9])
-    payload = _rest_payload(["cpu_usage"], horizon=3)
-    payload["results"][0]["quantiles"] = [[float(row) for _ in range(9)] for row in range(3)]
-    result = from_rest_response(request, payload)
-    assert result.targets[0].quantiles["0.1"] == [0.0, 1.0, 2.0]
 
 
 def test_empty_quantiles_returns_empty_map() -> None:
@@ -184,22 +166,22 @@ def test_missing_quantile_level_is_rejected() -> None:
 
 def test_malformed_forecast_length_is_rejected() -> None:
     payload = _rest_payload(["cpu_usage"])
-    payload["results"][0]["forecast"] = [1.0]
+    payload["targets"][0]["forecast"] = [1.0]
     with pytest.raises(ForecastAdapterError, match="wrong length"):
         from_rest_response(_request(), payload)
 
 
+def test_malformed_quantile_length_is_rejected() -> None:
+    request = _request(quantiles=[0.1])
+    payload = _rest_payload(["cpu_usage"], quantiles=[{"level": 0.1, "values": [1.0]}])
+    with pytest.raises(ForecastAdapterError, match="wrong length"):
+        from_rest_response(request, payload)
+
+
 def test_non_finite_output_is_rejected() -> None:
     payload = _rest_payload(["cpu_usage"])
-    payload["results"][0]["forecast"] = [1.0, 2.0, float("inf")]
+    payload["targets"][0]["forecast"] = [1.0, 2.0, float("inf")]
     with pytest.raises(ForecastAdapterError, match="non-finite"):
-        from_rest_response(_request(), payload)
-
-
-def test_quantile_matrix_length_mismatch_is_rejected() -> None:
-    payload = _rest_payload(["cpu_usage"])
-    payload["results"][0]["quantiles"] = [[1.0, 2.0, 3.0]]
-    with pytest.raises(ForecastAdapterError, match="malformed quantile matrix"):
         from_rest_response(_request(), payload)
 
 

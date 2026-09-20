@@ -17,9 +17,9 @@ def make_client(**overrides: object) -> TestClient:
 
 def _payload(**overrides: object) -> dict:
     base: dict = {
-        "mode": "univariate",
         "horizon": 4,
-        "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}],
+        "targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}],
+        "quantiles": [0.1, 0.5, 0.9],
     }
     base.update(overrides)
     return base
@@ -31,53 +31,132 @@ def test_health_and_ready() -> None:
         assert client.get("/readyz").status_code == 200
 
 
-def test_forecast_univariate() -> None:
+def test_forecast_single_target() -> None:
     with make_client() as client:
         response = client.post("/v1/forecast", json=_payload())
         assert response.status_code == 200
         body = response.json()
-        assert body["model"] == "timesfm-3.0"
-        assert body["results"][0]["id"] == "a"
-        assert len(body["results"][0]["forecast"]) == 4
-        assert len(body["results"][0]["quantiles"]) == 4
+        assert body["model"]["id"] == "timesfm-3.0"
+        assert body["horizon"] == 4
+        assert body["targets"][0]["id"] == "a"
+        assert len(body["targets"][0]["forecast"]) == 4
+        assert len(body["targets"][0]["quantiles"]) == 3
+        assert body["targets"][0]["quantiles"][0]["level"] == 0.1
         assert body["usage"]["context_len"] == 3
+
+
+def test_point_only_forecast_omits_quantiles() -> None:
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=_payload(quantiles=[]))
+        assert response.status_code == 200
+        assert response.json()["targets"][0]["quantiles"] == []
 
 
 def test_forecast_with_covariates() -> None:
     payload = _payload(
-        series=[
-            {
-                "id": "a",
-                "target": [1.0, 2.0, 3.0],
-                "past_covariates": {"temp": [0.1, 0.2, 0.3]},
-                "future_covariates": {"promo": [0, 0, 0, 1, 0, 0, 0]},
-            }
-        ]
+        horizon=3,
+        targets=[{"id": "a", "values": [1.0, 2.0, 3.0]}],
+        past_covariates=[{"id": "temp", "values": [0.1, 0.2, 0.3]}],
+        known_future_covariates=[
+            {"id": "promo", "history": [0.0, 0.0, 0.0], "future": [1.0, 0.0, 0.0]}
+        ],
     )
     with make_client() as client:
         assert client.post("/v1/forecast", json=payload).status_code == 200
 
 
-def test_covariate_length_is_validated() -> None:
+def test_joint_targets_are_forecast_together() -> None:
     payload = _payload(
-        series=[
-            {
-                "id": "a",
-                "target": [1.0, 2.0, 3.0],
-                "past_covariates": {"temp": [0.1, 0.2]},
-            }
-        ]
+        horizon=3,
+        targets=[
+            {"id": "a", "values": [1.0, 2.0, 3.0, 4.0]},
+            {"id": "b", "values": [5.0, 6.0, 7.0, 8.0]},
+        ],
     )
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=payload)
+    assert response.status_code == 200
+    assert [target["id"] for target in response.json()["targets"]] == ["a", "b"]
+
+
+def test_covariate_length_is_validated() -> None:
+    payload = _payload(past_covariates=[{"id": "temp", "values": [0.1, 0.2]}])
     with make_client() as client:
         response = client.post("/v1/forecast", json=payload)
         assert response.status_code == 422
         assert response.headers["content-type"] == "application/problem+json"
 
 
+def test_known_future_length_is_validated() -> None:
+    payload = _payload(
+        known_future_covariates=[{"id": "promo", "history": [0.0, 0.0, 0.0], "future": [1.0]}]
+    )
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=payload)
+        assert response.status_code == 422
+        assert "horizon" in response.json()["detail"]
+
+
+def test_duplicate_ids_are_rejected() -> None:
+    payload = _payload(past_covariates=[{"id": "a", "values": [0.0, 0.0, 0.0]}])
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=payload)
+        assert response.status_code == 422
+        assert "globally unique" in response.json()["detail"]
+
+
+def test_unsupported_quantile_is_rejected() -> None:
+    payload = _payload(quantiles=[0.55])
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=payload)
+        assert response.status_code == 422
+        assert "unsupported quantile" in response.json()["detail"]
+
+
 def test_horizon_limit() -> None:
     with make_client(max_horizon=2) as client:
         response = client.post("/v1/forecast", json=_payload(horizon=5))
         assert response.status_code == 422
+
+
+def test_nan_target_rejected() -> None:
+    body = '{"horizon":2,"targets":[{"id":"a","values":[1.0,NaN,3.0]}],"quantiles":[]}'
+    with make_client() as client:
+        response = client.post(
+            "/v1/forecast", content=body, headers={"content-type": "application/json"}
+        )
+        assert response.status_code == 422
+        assert "non-finite" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"mode": "univariate"},
+        {"options": {"interpolate_missing": True}},
+        {"return_quantiles": True},
+    ],
+)
+def test_removed_top_level_fields_are_rejected(overrides: dict) -> None:
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=_payload(**overrides))
+    assert response.status_code == 422
+
+
+def test_removed_series_field_is_rejected() -> None:
+    payload = {"horizon": 2, "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}]}
+    with make_client() as client:
+        assert client.post("/v1/forecast", json=payload).status_code == 422
+
+
+def test_legacy_per_series_fields_are_rejected() -> None:
+    payload = {
+        "horizon": 2,
+        "targets": [{"id": "a", "target": [1.0, 2.0, 3.0]}],
+        "quantiles": [],
+    }
+    with make_client() as client:
+        assert client.post("/v1/forecast", json=payload).status_code == 422
 
 
 def test_api_key_required() -> None:
@@ -92,55 +171,6 @@ def test_api_key_required() -> None:
 def test_docs_can_be_disabled() -> None:
     with make_client(enable_docs=False) as client:
         assert client.get("/openapi.json").status_code == 404
-
-
-def _multivariate_payload(**overrides: object) -> dict:
-    base: dict = {
-        "mode": "multivariate",
-        "horizon": 3,
-        "series": [
-            {"id": "a", "target": [1.0, 2.0, 3.0, 4.0]},
-            {"id": "b", "target": [5.0, 6.0, 7.0, 8.0]},
-        ],
-    }
-    base.update(overrides)
-    return base
-
-
-def test_multivariate_with_request_covariates() -> None:
-    payload = _multivariate_payload(
-        past_covariates={"footfall": [0.1, 0.2, 0.3, 0.4]},
-        future_covariates={"promo": [0, 0, 1, 0, 1, 0, 0]},
-    )
-    with make_client() as client:
-        response = client.post("/v1/forecast", json=payload)
-        assert response.status_code == 200
-        assert len(response.json()["results"]) == 2
-
-
-def test_multivariate_rejects_per_series_covariates() -> None:
-    payload = _multivariate_payload(
-        series=[
-            {"id": "a", "target": [1.0, 2.0, 3.0], "past_covariates": {"x": [1.0, 2.0, 3.0]}},
-            {"id": "b", "target": [4.0, 5.0, 6.0]},
-        ]
-    )
-    with make_client() as client:
-        assert client.post("/v1/forecast", json=payload).status_code == 422
-
-
-def test_univariate_rejects_request_covariates() -> None:
-    payload = _payload(past_covariates={"x": [1.0, 2.0, 3.0]})
-    with make_client() as client:
-        assert client.post("/v1/forecast", json=payload).status_code == 422
-
-
-def test_multivariate_covariate_length_validated() -> None:
-    payload = _multivariate_payload(future_covariates={"promo": [0, 1]})
-    with make_client() as client:
-        response = client.post("/v1/forecast", json=payload)
-        assert response.status_code == 422
-        assert "context + horizon" in response.json()["detail"]
 
 
 def test_capabilities_endpoint() -> None:
@@ -161,33 +191,3 @@ def test_capabilities_endpoint() -> None:
 def test_otel_enabled_does_not_break_startup() -> None:
     with make_client(otel_enabled=True) as client:
         assert client.get("/healthz").status_code == 200
-
-
-def test_nan_target_rejected() -> None:
-    body = '{"mode":"univariate","horizon":2,"series":[{"id":"a","target":[1.0,NaN,3.0]}]}'
-    with make_client() as client:
-        response = client.post(
-            "/v1/forecast", content=body, headers={"content-type": "application/json"}
-        )
-        assert response.status_code == 422
-        assert "non-finite" in response.json()["detail"]
-
-
-def test_interpolate_missing_allows_interior_nan() -> None:
-    body = (
-        '{"mode":"univariate","horizon":2,"series":[{"id":"a","target":[1.0,NaN,3.0]}],'
-        '"options":{"interpolate_missing":true}}'
-    )
-    with make_client() as client:
-        response = client.post(
-            "/v1/forecast", content=body, headers={"content-type": "application/json"}
-        )
-        assert response.status_code == 200
-
-
-def test_symmetric_averaging_is_rejected() -> None:
-    payload = _payload(options={"symmetric_averaging": True})
-    with make_client() as client:
-        response = client.post("/v1/forecast", json=payload)
-    assert response.status_code == 422
-    assert "symmetric_averaging" in response.json()["detail"]
