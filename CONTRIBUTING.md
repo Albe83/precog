@@ -70,10 +70,14 @@ major and refuses to merge across a boundary (for example `0.x` → `1.0.0`).
 
 To cut a major release (e.g. v1.0.0 for #201):
 
-1. review the release PR carefully: version, `CHANGELOG.md`, and the artifact
-   configuration (`release-please-config.json`, workflows);
-2. merge it manually (squash) once checks are green;
-3. finalize explicitly, since a manual/fallback-`GITHUB_TOKEN` merge does not
+1. land a one-shot commit on `main` whose commit body contains
+   `Release-As: 1.0.0` (use the intended major version). Release Please uses
+   that footer to override the semantic version it would otherwise derive; do
+   not persist `release-as` in `release-please-config.json`;
+2. review the generated release PR carefully: version, `CHANGELOG.md`, and the
+   artifact configuration (`release-please-config.json`, workflows);
+3. merge it manually (squash) once checks are green;
+4. finalize explicitly, since a manual/fallback-`GITHUB_TOKEN` merge does not
    trigger the `push` workflow that creates the GitHub release:
 
    ```bash
