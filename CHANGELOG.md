@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.21.0](https://github.com/Albe83/precog/compare/v0.20.0...v0.21.0) (2026-09-20)
+
+
+### Features
+
+* **sdk:** establish distributable Python execution client ([#193](https://github.com/Albe83/precog/issues/193)) ([38c7dbe](https://github.com/Albe83/precog/commit/38c7dbed3708ae97f2f4e9f4bdd373769b890d44))
+
 ## [0.20.0](https://github.com/Albe83/precog/compare/v0.19.0...v0.20.0) (2026-09-20)
 
 
