@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.0.1](https://github.com/Albe83/precog/compare/v1.0.0...v1.0.1) (2026-09-20)
+
+
+### Documentation
+
+* **mcp:** clarify joint targets and backtest semantics for agents ([#243](https://github.com/Albe83/precog/issues/243)) ([0033ed8](https://github.com/Albe83/precog/commit/0033ed8953cbb5391987a68139c69cb5f05903d6))
+* **repo:** refresh release-smoke header for published v1 artifacts ([#239](https://github.com/Albe83/precog/issues/239)) ([7eaa0cb](https://github.com/Albe83/precog/commit/7eaa0cbdf5e17a5eae64053a851ea3b7ac1dc100))
+
 ## [1.0.0](https://github.com/Albe83/precog/compare/v0.21.1...v1.0.0) (2026-09-20)
 
 
