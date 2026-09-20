@@ -53,11 +53,12 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg
 - PR titles are checked in CI (`pr-title` workflow) with the same types/scopes.
 - `release-please` opens a release PR from `main`; merging it tags the source,
   updates `CHANGELOG.md`, and publishes the release artifacts through the
-  release workflows: the weight-free `precog-api` and `precog-mcp` images and
-  the Helm chart (OCI + GitHub release `.tgz`). Model weights are never
-  published. The `precog-schemas`/`precog-client` Python pair is versioned
-  independently and published manually from `main` (`python-packages`
-  workflow), not by release-please.
+  release workflows: the weight-free `precog-api` and `precog-mcp` images, the
+  Helm chart (OCI + GitHub release `.tgz`), and the application Python
+  distributions (`precog-api`, `precog-mcp`) when enabled (see below). Model
+  weights are never published. The `precog-schemas`/`precog-client` Python pair
+  is versioned independently and published manually from `main`
+  (`python-packages` workflow), not by release-please.
 - Release PRs are merged by the `autorelease` workflow. A release PR that would
   cross a major version is not auto-merged and must be reviewed and merged
   deliberately.
@@ -83,6 +84,32 @@ To cut a major release (e.g. v1.0.0 for #201):
    It is idempotent: re-running it on an already-released version does nothing.
    With a `RELEASE_PLEASE_TOKEN` secret configured, the merge push finalizes
    automatically and step 3 is not needed.
+
+### Application Python packages (PyPI)
+
+`precog-api` and `precog-mcp` are also published to PyPI as secondary
+distributions of the same application release (containers/Helm remain the
+preferred production path). The `publish-python-apps` workflow builds them from
+the concrete release tag commit and uploads via PyPI Trusted Publishing (OIDC,
+protected `pypi` environment) — no static token, and never from a later `main`
+commit.
+
+Bootstrap: publication is opt-in through the repository variable
+`PYPI_APP_PUBLISH`. Leave it unset for ordinary pre-v1 releases; enable it for
+the deliberate `v1.0.0` release after configuring a Trusted Publisher for both
+`precog-api` and `precog-mcp` against this repository, the
+`.github/workflows/publish-python-apps.yml` workflow and the `pypi` environment.
+The SDK pair (`precog-schemas`/`precog-client`) is a separate train and is not
+published here.
+
+Retries are safe: API and MCP publish as independent jobs after a shared,
+validated build (package version is asserted to equal the release tag), and
+uploads use `skip-existing`, so a successful API upload does not force a rebuild
+or a version change when MCP needs a retry. Re-publish an existing tag with:
+
+```bash
+gh workflow run publish-python-apps.yml --ref main -f tag=v1.0.0
+```
 
 ## Branch protection
 

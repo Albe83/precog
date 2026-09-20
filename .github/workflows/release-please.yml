@@ -68,3 +68,17 @@ jobs:
     uses: ./.github/workflows/publish-chart.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
+
+  # Publish the application Python distributions (precog-api, precog-mcp) to
+  # PyPI. Opt-in via the repository variable PYPI_APP_PUBLISH so pre-v1 releases
+  # do not attempt to upload projects whose Trusted Publishers may not exist
+  # yet; enable it for the deliberate v1.0.0 release.
+  pypi:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true' && vars.PYPI_APP_PUBLISH == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-python-apps.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}

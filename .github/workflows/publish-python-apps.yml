@@ -1,0 +1,208 @@
+name: publish-python-apps
+
+# Publishes the application Python distributions (`precog-api`, `precog-mcp`) to
+# PyPI as additional artifacts of an application release.
+#
+# - built from the concrete release tag commit, never from a later main commit;
+# - PyPI Trusted Publishing (OIDC) via the protected `pypi` environment, no
+#   static token;
+# - only API/MCP here: the independent SDK pair is published by
+#   `python-packages.yml`;
+# - re-running is safe: uploads use `skip-existing`, so a successful API upload
+#   does not force a rebuild or a version change when MCP needs a retry.
+#
+# Containers and Helm remain the preferred deployment path.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Application release tag to publish (e.g. v1.0.0). Required.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing application release tag to (re)publish (e.g. v1.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-python-apps-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ref.outputs.tag }}
+      version: ${{ steps.ref.outputs.version }}
+      sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - name: Checkout validation tooling
+        uses: actions/checkout@v7
+
+      - name: Resolve and validate the release tag
+        id: ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            echo "::error::a concrete release tag is required; only an application release can publish these packages"
+            exit 1
+          fi
+
+          # Shared, tested SemVer release-tag authority (same as OCI/Helm).
+          if ! semver="$(python3 tools/release_tag.py "$tag" --github-output)"; then
+            exit 1
+          fi
+          version="$(sed -n 's/^version=//p' <<<"$semver")"
+
+          if ! ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" 2>/dev/null)"; then
+            echo "::error::release tag 'refs/tags/$tag' does not exist in ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          obj_type="$(jq -r .object.type <<<"$ref")"
+          obj_sha="$(jq -r .object.sha <<<"$ref")"
+          case "$obj_type" in
+            tag) sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${obj_sha}" --jq .object.sha)" ;;
+            commit) sha="$obj_sha" ;;
+            *) echo "::error::refs/tags/$tag points at unexpected object type '$obj_type'"; exit 1 ;;
+          esac
+
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the release tag commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.ref.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Prove application metadata equals the release version
+        run: python3 tools/release_metadata.py --expect "${{ steps.ref.outputs.version }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Build API and MCP distributions from the release tag
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          uv build apps/api --out-dir dist/api
+          uv build apps/mcp --out-dir dist/mcp
+          find dist -type f | sort
+
+      - name: Verify archives and version metadata
+        run: |
+          set -euo pipefail
+          python tools/verify_dist_archives.py dist
+          python - "${{ steps.ref.outputs.version }}" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          expected = sys.argv[1]
+          wheels = sorted(Path("dist").rglob("*.whl"))
+          assert wheels, "no wheels were built"
+          for wheel in wheels:
+              with zipfile.ZipFile(wheel) as archive:
+                  metadata = next(
+                      name for name in archive.namelist() if name.endswith("METADATA")
+                  )
+                  versions = [
+                      line.split(": ", 1)[1]
+                      for line in archive.read(metadata).decode().splitlines()
+                      if line.startswith("Version: ")
+                  ]
+              assert versions and versions[0] == expected, (wheel.name, versions, expected)
+              print(f"{wheel.name} metadata version {versions[0]}")
+          PY
+
+      - name: Summary
+        run: |
+          {
+            echo "### Application Python distributions (build)"
+            echo "- release tag: \`${{ steps.ref.outputs.tag }}\`"
+            echo "- release commit: \`${{ steps.ref.outputs.sha }}\`"
+            echo "- version: \`${{ steps.ref.outputs.version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precog-api-dist-pypi
+          path: dist/api/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precog-mcp-dist-pypi
+          path: dist/mcp/*
+          if-no-files-found: error
+
+  publish-api:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: precog-api-dist-pypi
+          path: dist
+
+      - name: Publish precog-api to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`precog-api\`"
+            echo "- version: \`${{ needs.validate.outputs.version }}\`"
+            echo "- release tag: \`${{ needs.validate.outputs.tag }}\`"
+            echo "- source commit: \`${{ needs.validate.outputs.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-mcp:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: precog-mcp-dist-pypi
+          path: dist
+
+      - name: Publish precog-mcp to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`precog-mcp\`"
+            echo "- version: \`${{ needs.validate.outputs.version }}\`"
+            echo "- release tag: \`${{ needs.validate.outputs.tag }}\`"
+            echo "- source commit: \`${{ needs.validate.outputs.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
