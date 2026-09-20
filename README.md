@@ -126,6 +126,25 @@ docs                ADRs, deployment, MCP and SDK guides
 
 ## Deploy
 
+For production, **OCI images and Helm are the recommended deployment path**.
+The API and MCP server are also published to PyPI as a supported secondary path
+for development, labs, lightweight installs and Python-native environments:
+
+```bash
+APP_VERSION=1.0.0
+pip install "precog-api==$APP_VERSION" "precog-mcp==$APP_VERSION"
+```
+
+The base `precog-api` package is lightweight and does not install TimesFM.
+Install the real engine runtime explicitly when needed:
+
+```bash
+pip install "precog-api[engine]==$APP_VERSION"
+```
+
+Application packages follow the Precog application version. The
+`precog-client` / `precog-schemas` SDK train remains independent.
+
 The API ships as a CPU-only container that downloads the weights into a cache
 volume at startup (never baked in). Weight-free images and the Helm chart are
 published per release:
