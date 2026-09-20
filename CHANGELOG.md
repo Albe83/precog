@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.2.1](https://github.com/Albe83/precog/compare/v1.2.0...v1.2.1) (2026-09-20)
+
+
+### Documentation
+
+* **repo:** link the published landing page from the README ([#250](https://github.com/Albe83/precog/issues/250)) ([c894bba](https://github.com/Albe83/precog/commit/c894bba5dc64537e26792947cc6a06d508047851))
+
 ## [1.2.0](https://github.com/Albe83/precog/compare/v1.1.0...v1.2.0) (2026-09-20)
 
 
