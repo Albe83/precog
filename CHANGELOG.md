@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.0.0](https://github.com/Albe83/precog/compare/v0.21.1...v1.0.0) (2026-09-20)
+
+
+### Documentation
+
+* **repo:** prepare deliberate v1 release cut ([#235](https://github.com/Albe83/precog/issues/235)) ([09b60d3](https://github.com/Albe83/precog/commit/09b60d3e52fb1569fdbc7a6be406e4c73616fd54))
+
 ## [0.21.1](https://github.com/Albe83/precog/compare/v0.21.0...v0.21.1) (2026-09-20)
 
 
