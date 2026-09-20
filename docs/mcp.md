@@ -30,6 +30,10 @@ If the input is invalid the request fails. Precog never silently changes the
 data. All series must already be equally sampled, time-aligned and ordered from
 oldest to newest.
 
+Precog returns forecasts and objective evidence; it does not decide whether a
+forecast is operationally useful. That judgement, the units and the domain
+meaning stay with the consumer.
+
 ## Tool: `forecast`
 
 Forecast future values for one or more related numeric time series.
@@ -45,9 +49,14 @@ Forecast future values for one or more related numeric time series.
 `horizon` is expressed in steps: with one sample every 5 minutes, `horizon: 12`
 means the next hour. Precog does not need to know the sampling interval.
 
-Multiple `targets` are forecast **jointly** and must represent related series on
-the same timeline. Unrelated forecasting problems require separate `forecast`
-calls; the MCP server intentionally does not expose a batch tool.
+Multiple `targets` are forecast **jointly**: one call is one joint forecasting
+problem, not independent per-series calls. Related targets may contribute
+information to each other's forecast, so the result can differ from forecasting
+each series on its own. Group series only when they belong to the same
+forecasting problem (for example, metrics of the same system on the same
+timeline). Unrelated forecasting problems require separate `forecast` calls; the
+MCP server intentionally does not expose a batch tool, and the caller decides
+whether the targets are meaningfully related.
 
 ### Historical-only vs known-future covariates
 
@@ -173,21 +182,32 @@ assumes it and does not verify or infer that fact. Feeding holdout information a
 ### Metrics
 
 For each target the result contains the held-out `actual` values, the `forecast`
-for the same steps, and objective metrics in the target's units:
+for the same steps, and objective metrics in the target's units. Metrics are
+reported **per target** and describe this single window:
 
-- **MAE** — mean absolute error: `mean(|actual - forecast|)`.
-- **RMSE** — root mean squared error: `sqrt(mean((actual - forecast)²))`.
+- **MAE** — mean absolute error: `mean(|actual - forecast|)`, in the target's
+  native units.
+- **RMSE** — root mean squared error: `sqrt(mean((actual - forecast)²))`, in the
+  target's native units.
 - **sMAPE** — symmetric mean absolute percentage error:
   `100 / n · Σ 2·|actual - forecast| / (|actual| + |forecast|)`, where a term with
   `|actual| + |forecast| = 0` contributes `0`. The value is a percentage in
-  `[0, 200]`.
+  `[0, 200]`. It is scale-relative but unstable and easily misread near zero;
+  a particular value is not a pass/fail threshold.
 
 When the requested quantiles bracket the median (at least one level `< 0.5` and
 one `> 0.5`), the result also reports `coverage` for the widest such interval:
 the percentage of holdout steps whose actual value lies inside
 `[lower_quantile, upper_quantile]`. With the default `[0.1, 0.9]` that is the
-empirical 80% interval coverage of this single window. It is a measurement, not a
-calibration guarantee.
+empirical 80% interval coverage of this single window. It is descriptive
+evidence for one short holdout, not a robust calibration estimate.
+
+These metrics are **objective evidence, not a verdict**. Whether the forecast is
+operationally useful is the caller's decision. A low error does not by itself
+mean the forecast adds value: for a near-flat series, a naive persistence
+baseline (repeating the last observed value) can match or beat the forecast.
+Compare against such a baseline where feasible; Precog does not compute one for
+you.
 
 ### Backtest result
 
@@ -260,7 +280,11 @@ are forwarded as known-future inputs.
 The server exposes one MCP resource, `precog://capabilities`
 (`application/json`), describing the **semantic** capabilities of this MCP
 server: which operations an agent can ask for and which Precog-level limits
-apply. It is intended for discovery before the first call.
+apply. It is intended for discovery before the first call, and it states the
+semantic meaning of an operation rather than execution mechanics: a single
+`forecast` or `backtest` call with multiple targets is one joint problem, not
+independent per-series calls, and source-data handling remains the consumer's
+responsibility.
 
 This is deliberately **not** a mirror of the REST `GET /v1/capabilities`
 endpoint. The MCP resource translates the execution API's information into the
