@@ -19,10 +19,9 @@ from pathlib import Path
 
 import numpy as np
 
-from benchmarks import predict_multivariate, predict_univariate
+from benchmarks import QUANTILE_LEVELS, predict_multivariate, predict_univariate
 from precog_api.config import Settings
 from precog_api.engine_timesfm3 import TimesFM3Engine
-from precog_schemas import QUANTILE_LEVELS
 
 DATA_DIR = Path(__file__).parent / "data"
 BASELINE = DATA_DIR / "benchmark_baseline.json"

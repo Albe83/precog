@@ -10,7 +10,7 @@ Early development. The current MVP exposes a single synchronous endpoint:
 | ------ | ---- | ------- |
 | `GET`  | `/healthz` | Liveness |
 | `GET`  | `/readyz`  | Readiness (model loaded) |
-| `GET`  | `/v1/capabilities` | Model and API capabilities (limits, modes, covariates) |
+| `GET`  | `/v1/capabilities` | Execution/runtime capabilities (engine, model, limits, quantiles, features) |
 | `POST` | `/v1/forecast` | Synchronous execution (joint targets + optional covariates) |
 | `GET`  | `/docs` | OpenAPI docs (disable with `PRECOG_ENABLE_DOCS=false`) |
 

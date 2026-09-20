@@ -17,28 +17,34 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.models import (
+    SEMANTIC_QUANTILE_LEVELS,
     BacktestCapability,
     ForecastCapability,
     PublicLimits,
     SemanticCapabilities,
 )
-from precog_schemas import QUANTILE_LEVELS
 
 BACKTEST_METRICS: tuple[str, ...] = ("mae", "rmse", "smape")
 
 
 class _ExecutionLimits(BaseModel):
-    """Minimal execution-API view needed for the public runtime limits.
+    """Narrow execution-API view needed for the public runtime limits.
 
-    Deliberately narrow: unrelated REST capability fields are ignored so that
-    an unrelated change in the execution payload cannot drop otherwise valid
-    public limits or couple the semantic resource to backend concepts.
+    Deliberately narrow: unrelated execution capability fields (engine, device,
+    variate budget, features, ...) are ignored so that an unrelated change in
+    the execution payload cannot drop otherwise valid public limits or couple
+    the semantic resource to backend concepts.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    max_horizon: int
-    max_context: int
+    class _Limits(BaseModel):
+        model_config = ConfigDict(extra="ignore")
+
+        max_horizon: int
+        max_context: int
+
+    limits: _Limits
 
 
 def static_capabilities() -> SemanticCapabilities:
@@ -56,7 +62,7 @@ def static_capabilities() -> SemanticCapabilities:
             metrics=list(BACKTEST_METRICS),
             interval_coverage=True,
         ),
-        limits=PublicLimits(quantile_levels=list(QUANTILE_LEVELS)),
+        limits=PublicLimits(quantile_levels=list(SEMANTIC_QUANTILE_LEVELS)),
     )
 
 
@@ -70,9 +76,9 @@ def limits_from_rest(payload: Mapping[str, Any]) -> PublicLimits:
     """
     response = _ExecutionLimits.model_validate(payload)
     return PublicLimits(
-        max_horizon=response.max_horizon,
-        max_context_length=response.max_context,
-        quantile_levels=list(QUANTILE_LEVELS),
+        max_horizon=response.limits.max_horizon,
+        max_context_length=response.limits.max_context,
+        quantile_levels=list(SEMANTIC_QUANTILE_LEVELS),
     )
 
 

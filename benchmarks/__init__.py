@@ -7,7 +7,9 @@ from collections.abc import Sequence
 import numpy as np
 
 from precog_api.execution import Engine, ExecutionProblem, ExecutionTarget
-from precog_schemas import QUANTILE_LEVELS
+
+# The default TimesFM-3 quantile grid used by the benchmark helpers.
+QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 
 def predict_univariate(
@@ -21,8 +23,7 @@ def predict_univariate(
     """Run one series through the canonical engine boundary.
 
     Returns ``(point_forecast, quantile_matrix)`` where the matrix is
-    ``(horizon, len(QUANTILE_LEVELS))`` in ``QUANTILE_LEVELS`` order, matching the
-    legacy REST layout the benchmarks were written against.
+    ``(horizon, len(QUANTILE_LEVELS))`` in ``QUANTILE_LEVELS`` order.
     """
     problem = ExecutionProblem(
         horizon=horizon,

@@ -31,11 +31,12 @@ from precog_api.observability import (
 )
 from precog_api.tracing import setup_tracing
 from precog_schemas import (
-    QUANTILE_LEVELS,
     Capabilities,
+    ExecutionFeatures,
+    ExecutionLimits,
     ForecastRequest,
     ForecastResponse,
-    Mode,
+    ModelProvenance,
 )
 
 logger = logging.getLogger("precog.api")
@@ -256,18 +257,23 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     async def capabilities() -> Capabilities:
         engine = app.state.engine
         return Capabilities(
-            model=settings.model_name,
-            model_id=settings.model_id,
-            revision=settings.model_revision,
             engine=settings.engine,
+            model=ModelProvenance(id=settings.model_id, revision=settings.model_revision),
             device=settings.device,
-            modes=[Mode.univariate, Mode.multivariate],
-            max_horizon=settings.max_horizon,
-            max_context=_min_limit(settings.max_context, engine.max_context),
-            max_series=settings.max_series,
-            max_variates=_min_limit(settings.max_series, engine.max_variates),
-            quantile_levels=list(QUANTILE_LEVELS),
-            covariates={"univariate": True, "multivariate": True},
+            limits=ExecutionLimits(
+                max_horizon=settings.max_horizon,
+                max_context=_min_limit(settings.max_context, engine.max_context),
+                max_variates=engine.max_variates,
+                max_targets=settings.max_series,
+            ),
+            quantile_levels=list(engine.quantile_levels),
+            features=ExecutionFeatures(
+                point_forecast=True,
+                probabilistic_forecast=True,
+                past_covariates=True,
+                known_future_covariates=True,
+                joint_targets=True,
+            ),
             auth_required=bool(settings.api_key),
         )
 
@@ -304,7 +310,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return to_forecast_response(
             payload,
             result,
-            model=settings.model_name,
+            model=settings.model_id,
             revision=settings.model_revision,
             latency_ms=round(latency_ms, 3),
         )
@@ -380,6 +386,23 @@ def _enforce_limits(payload: ForecastRequest, settings: Settings, engine: Engine
                     f"{variates} variates exceed max {engine.max_variates}; "
                     "Precog never drops or chunks covariates/targets to fit the model"
                 ),
+            )
+    _enforce_supported_quantiles(payload, engine)
+
+
+def _enforce_supported_quantiles(payload: ForecastRequest, engine: Engine) -> None:
+    """Reject requested quantile levels the active runtime cannot produce.
+
+    The runtime grid is the execution source of truth (#179); unsupported levels
+    fail closed before any backend column lookup.
+    """
+    supported = engine.quantile_levels
+    for level in payload.quantiles:
+        if not any(abs(level - candidate) < 1e-9 for candidate in supported):
+            allowed = ", ".join(f"{value:g}" for value in supported)
+            raise HTTPException(
+                status_code=422,
+                detail=f"unsupported quantile {level}; supported levels: {allowed}",
             )
 
 

@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import math
-from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 
 class _StrictRequestModel(BaseModel):
@@ -20,16 +17,6 @@ def _require_finite(values: list[float], label: str) -> None:
     """Reject NaN/Inf: Precog never cleans or interpolates caller data."""
     if not all(math.isfinite(value) for value in values):
         raise ValueError(f"{label} contains non-finite values (NaN/Inf)")
-
-
-class Mode(StrEnum):
-    """Whether each series is forecast independently or jointly.
-
-    Retained for the execution capabilities endpoint until #179 replaces it.
-    """
-
-    univariate = "univariate"
-    multivariate = "multivariate"
 
 
 class HistoricalSeries(_StrictRequestModel):
@@ -69,14 +56,15 @@ class ForecastRequest(_StrictRequestModel):
     @field_validator("quantiles")
     @classmethod
     def _validate_quantiles(cls, levels: list[float]) -> list[float]:
-        seen: set[float] = set()
-        for level in levels:
-            if level not in QUANTILE_LEVELS:
-                allowed = ", ".join(f"{value:.1f}" for value in QUANTILE_LEVELS)
-                raise ValueError(f"unsupported quantile {level}; allowed values: {allowed}")
-            if level in seen:
-                raise ValueError(f"duplicate quantile {level}")
-            seen.add(level)
+        """Structural validation only.
+
+        Whether a level is supported by the active runtime is an execution
+        capability checked at the API boundary against the engine's grid (#179).
+        """
+        if any(not 0.0 < level < 1.0 for level in levels):
+            raise ValueError("quantile levels must be strictly between 0 and 1")
+        if len(set(levels)) != len(levels):
+            raise ValueError("duplicate quantile levels")
         return levels
 
     @model_validator(mode="after")
@@ -163,25 +151,41 @@ class ForecastResponse(BaseModel):
     usage: Usage
 
 
-class Capabilities(BaseModel):
-    """Model and API contract advertised to clients.
+class ExecutionLimits(BaseModel):
+    """Effective execution limits advertised to clients.
 
-    Execution/runtime discovery is redesigned in #179; this legacy shape stays
-    for now.
+    ``max_horizon`` and ``max_targets`` are Precog policy ceilings;
+    ``max_context`` is the effective min(config, engine); ``max_variates`` is the
+    engine's forward-pass budget shared by targets and covariate channels
+    (``None`` when the engine is unbounded).
     """
 
-    model: str
-    model_id: str
-    revision: str | None = None
-    engine: str
-    device: str
-    modes: list[Mode]
     max_horizon: int
     max_context: int
-    max_series: int
-    # Effective total variates per joint forecast (targets + covariates), or
-    # ``None`` when the active engine is unbounded.
     max_variates: int | None = None
+    max_targets: int
+
+
+class ExecutionFeatures(BaseModel):
+    """Execution-level feature support of the active runtime."""
+
+    point_forecast: bool
+    probabilistic_forecast: bool
+    past_covariates: bool
+    known_future_covariates: bool
+    joint_targets: bool
+
+
+class Capabilities(BaseModel):
+    """Execution/runtime capabilities advertised at ``GET /v1/capabilities``.
+
+    Distinct from the MCP semantic capabilities resource (``precog://capabilities``).
+    """
+
+    engine: str
+    model: ModelProvenance
+    device: str
+    limits: ExecutionLimits
     quantile_levels: list[float]
-    covariates: dict[str, bool]
+    features: ExecutionFeatures
     auth_required: bool

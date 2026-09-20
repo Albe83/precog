@@ -23,7 +23,7 @@ function client(): PrecogClient {
 async function loadCapabilities(): Promise<void> {
   try {
     const caps = await client().capabilities();
-    status.textContent = `model ${caps.model} · ${caps.device} · horizon ≤ ${caps.max_horizon} · ${caps.modes.join("/")}`;
+    status.textContent = `model ${caps.model.id} · ${caps.device} · horizon ≤ ${caps.limits.max_horizon}`;
   } catch (error) {
     status.textContent = `capabilities error: ${(error as Error).message}`;
   }

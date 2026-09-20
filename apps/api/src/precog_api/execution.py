@@ -94,6 +94,10 @@ class Engine(Protocol):
     def max_variates(self) -> int | None:
         """Effective variates per forward pass, or ``None`` if unbounded."""
 
+    @property
+    def quantile_levels(self) -> tuple[float, ...]:
+        """The quantile grid the active runtime can produce, in column order."""
+
     def predict(self, problem: ExecutionProblem) -> ExecutionResult:
         """Run one canonical execution problem and return a normalized result."""
 

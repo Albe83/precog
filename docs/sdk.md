@@ -21,7 +21,7 @@ from precog_client import PrecogClient
 
 with PrecogClient("http://localhost:8000") as client:
     capabilities = client.capabilities()
-    print(capabilities.max_horizon, capabilities.modes)
+    print(capabilities.model.id, capabilities.limits.max_horizon)
 
     response = client.forecast(
         horizon=4,
