@@ -1,9 +1,17 @@
 [project]
 name = "precog-mcp"
-version = "0.1.0"
+version = "0.21.1"
 description = "MCP server exposing Precog forecasts as tools."
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+keywords = ["forecasting", "time-series", "mcp", "timesfm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "mcp>=2.2",
     "httpx>=0.27",
@@ -11,8 +19,8 @@ dependencies = [
     "prometheus-client>=0.20",
     "pydantic>=2.7",
     "pydantic-settings>=2.4",
-    "precog-schemas",
-    "precog-client",
+    "precog-schemas>=0.1.0,<0.2.0",
+    "precog-client>=0.1.0,<0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -21,6 +29,12 @@ otel = [
     "opentelemetry-exporter-otlp-proto-http>=1.27",
     "opentelemetry-instrumentation-httpx>=0.48b0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Albe83/precog"
+Repository = "https://github.com/Albe83/precog"
+Issues = "https://github.com/Albe83/precog/issues"
+Changelog = "https://github.com/Albe83/precog/blob/main/CHANGELOG.md"
 
 [project.scripts]
 precog-mcp = "precog_mcp.__main__:main"

@@ -8,6 +8,16 @@
       "package-name": "precog",
       "extra-files": [
         {
+          "type": "toml",
+          "path": "apps/api/pyproject.toml",
+          "jsonpath": "$.project.version"
+        },
+        {
+          "type": "toml",
+          "path": "apps/mcp/pyproject.toml",
+          "jsonpath": "$.project.version"
+        },
+        {
           "type": "yaml",
           "path": "deploy/helm/precog/Chart.yaml",
           "jsonpath": "$.version"
