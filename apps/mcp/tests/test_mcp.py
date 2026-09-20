@@ -208,7 +208,15 @@ def test_read_capabilities_resource_returns_semantic_shape() -> None:
     assert payload["limits"]["max_horizon"] == 1024
     assert payload["limits"]["max_context_length"] == 15360
     assert payload["limits"]["quantile_levels"] == list(QUANTILE_LEVELS)
-    for backend_only in ("engine", "device", "modes", "max_variates", "max_series", "model_id"):
+    for backend_only in (
+        "engine",
+        "device",
+        "model_id",
+        "max_variates",
+        "max_targets",
+        "features",
+        "auth_required",
+    ):
         assert backend_only not in text
 
 
