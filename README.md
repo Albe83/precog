@@ -1,10 +1,20 @@
 # Precog
 
-Zero-shot forecasting with [TimesFM-3](https://research.google/blog/timesfm-3-a-zero-shot-foundation-model-for-multivariate-forecasting/), packaged as a REST API, an MCP server and a Python SDK.
+Zero-shot forecasting with [TimesFM-3](https://research.google/blog/timesfm-3-a-zero-shot-foundation-model-for-multivariate-forecasting/).
 
-## Status
+Precog has three supported v1 surfaces:
 
-Early development. The current MVP exposes a single synchronous endpoint:
+- **REST Execution API** (`apps/api`) — the canonical synchronous execution
+  contract (targets, covariates, explicit quantiles; ADR 0006);
+- **MCP semantic interface** (`apps/mcp`) — agent-facing `forecast`/`backtest`
+  tools and the `precog://capabilities` resource (ADR 0005);
+- **Python SDK** (`packages/sdk-python`) — the official supported execution
+  client, with synchronous and asynchronous clients.
+
+The WebUI and the TypeScript SDK are kept in-tree but are **experimental and
+outside the supported v1 product surface** (see their READMEs).
+
+## REST API
 
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
@@ -68,6 +78,31 @@ Only the requested quantile levels are returned, as self-describing
 `{level, values}` entries per target. Non-finite inputs (`NaN`/`Inf`) are
 rejected: Precog never interpolates, truncates or otherwise mutates caller data.
 
+## MCP server
+
+`apps/mcp` exposes Precog to MCP clients as the semantic `forecast` and
+`backtest` tools plus the `precog://capabilities` resource. It talks to the REST
+API over HTTP through the official `AsyncPrecogClient` and carries no model
+weights. See [docs/mcp.md](docs/mcp.md).
+
+```bash
+PRECOG_ENGINE=fake uv run precog-api                                     # API
+PRECOG_API_URL=http://localhost:8000 uv run --no-sync precog-mcp         # MCP (stdio)
+```
+
+## Python SDK
+
+`packages/sdk-python` is the official supported execution client:
+`PrecogClient` (sync), `AsyncPrecogClient` (async) and the `precog` CLI, sharing
+the `precog-schemas` wire models. Install the published pair from PyPI:
+
+```bash
+pip install precog-client
+```
+
+The `precog-schemas`/`precog-client` version train is independent from the
+application/Helm release version. See [docs/sdk.md](docs/sdk.md).
+
 ## Configuration
 
 All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
@@ -78,30 +113,33 @@ All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
 ## Repository layout
 
 ```
-apps/api            FastAPI service (engine + HTTP)
-apps/mcp            MCP server exposing the forecast tool
-packages/schemas    Shared Pydantic models
-packages/sdk-python Python execution clients (sync + async)
-packages/sdk-ts     TypeScript client (browser / Node)
-webui               Minimal web UI built on the TypeScript SDK
+apps/api            FastAPI service (engine + HTTP execution API)
+apps/mcp            MCP server (semantic tools + capabilities resource)
+packages/schemas    Shared Pydantic wire models (published: precog-schemas)
+packages/sdk-python Python execution clients, sync + async (published: precog-client)
+packages/sdk-ts     TypeScript client (experimental, not supported in v1)
+webui               Web UI built on the TypeScript SDK (experimental, not supported in v1)
 benchmarks          Backtests against real Grafana/Thanos series
-deploy              Dockerfile, compose, Helm chart, Kustomize
+deploy              Compose, Helm chart, Kustomize, observability assets
 docs                ADRs, deployment, MCP and SDK guides
 ```
 
 ## Deploy
 
-CPU container that downloads the weights into a cache volume at startup (not
-baked in), built and run locally. See [docs/deploy.md](docs/deploy.md).
-Weight-free images are also published to GHCR on release:
-`ghcr.io/albe83/precog-api` and `ghcr.io/albe83/precog-mcp`.
-Quick version:
+The API ships as a CPU-only container that downloads the weights into a cache
+volume at startup (never baked in). Weight-free images and the Helm chart are
+published per release:
+
+- `ghcr.io/albe83/precog-api` (downloads weights at runtime)
+- `ghcr.io/albe83/precog-mcp` (no weights at all)
+- `oci://ghcr.io/albe83/precog-charts/precog` (pin with `--version`)
+
+Local builds are still supported. See [docs/deploy.md](docs/deploy.md).
 
 ```bash
 podman build --format docker -t precog-api:local .
 docker compose -f deploy/compose/docker-compose.yml up
 ```
-
 
 ## Development env note (TLS inspection)
 
@@ -116,5 +154,5 @@ uv sync --all-packages --system-certs      # or set UV_SYSTEM_CERTS=1
 
 Application code is MIT (see `LICENSE`). The TimesFM-3 model weights are
 distributed under the **TimesFM Non-Commercial License v1.0** and are **not**
-part of this repository. See `THIRD_PARTY_NOTICES.md`. This project is a
-non-commercial, hobby effort.
+part of this repository or the published images. See `THIRD_PARTY_NOTICES.md`.
+This project is a non-commercial, hobby effort.
