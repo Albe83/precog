@@ -161,12 +161,14 @@ jobs:
           set -euo pipefail
           tag="${{ inputs.app_tag }}"; [ -n "$tag" ] || tag="v${{ inputs.app_version }}"
           owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          for name in precog-api precog-mcp; do
-            ref="ghcr.io/${owner}/${name}:${tag}"
-            docker pull "$ref"
-            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$ref")"
-            echo "${name}_digest=$digest" >> "$GITHUB_OUTPUT"
-          done
+          api_ref="ghcr.io/${owner}/precog-api:${tag}"
+          mcp_ref="ghcr.io/${owner}/precog-mcp:${tag}"
+          docker pull "$api_ref"
+          docker pull "$mcp_ref"
+          api_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$api_ref")"
+          mcp_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$mcp_ref")"
+          echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
+          echo "mcp_digest=$mcp_digest" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Start the published API and MCP images
