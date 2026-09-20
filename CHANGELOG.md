@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.3.1](https://github.com/Albe83/precog/compare/v1.3.0...v1.3.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **docs:** angle both sides of Docker deployment tab ([e815e90](https://github.com/Albe83/precog/commit/e815e90d672c1ece531b6d2e3e0cd9c3297b1300))
+
 ## [1.3.0](https://github.com/Albe83/precog/compare/v1.2.2...v1.3.0) (2026-09-20)
 
 
