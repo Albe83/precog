@@ -206,13 +206,32 @@ def test_probabilistic_forecast_requested_quantiles() -> None:
     )
     structured = _assert_result_shape(result, ["a"])
     quantiles = structured["targets"][0]["quantiles"]
+    # Exactly the requested levels: no additional backend grid level leaks.
     assert list(quantiles) == ["0.1", "0.5", "0.9"]
+    assert len(quantiles) == 3
     for vector in quantiles.values():
         assert len(vector) == HORIZON
         assert all(math.isfinite(value) for value in vector)
     # Sorted quantiles must not cross.
     for step in range(HORIZON):
         assert quantiles["0.1"][step] <= quantiles["0.5"][step] <= quantiles["0.9"][step]
+
+
+def test_point_only_forecast_has_no_quantiles() -> None:
+    result = asyncio.run(
+        _call_forecast(
+            {
+                "targets": [{"id": "a", "values": _series(0, 100, CONTEXT)}],
+                "horizon": HORIZON,
+                "quantiles": [],
+            }
+        )
+    )
+    structured = _assert_result_shape(result, ["a"])
+    target = structured["targets"][0]
+    assert target["quantiles"] == {}
+    assert len(target["forecast"]) == HORIZON
+    assert all(math.isfinite(value) for value in target["forecast"])
 
 
 def test_point_forecast_matches_requested_median() -> None:
@@ -250,6 +269,14 @@ def test_invalid_semantic_input_is_rejected() -> None:
 def test_effective_capability_violation_maps_to_forecast_rejected() -> None:
     targets = [{"id": f"t{index}", "values": _series(index, 100, 8)} for index in range(33)]
     result = asyncio.run(_call_forecast({"targets": targets, "horizon": HORIZON}))
+    assert result.is_error is True
+    assert _envelope(result)["code"] == "FORECAST_REJECTED"
+
+
+def test_context_above_effective_limit_is_rejected() -> None:
+    """Fail closed above the live 15360 context; never truncate or infer."""
+    target = {"id": "a", "values": [0.0] * (15360 + 1)}
+    result = asyncio.run(_call_forecast({"targets": [target], "horizon": HORIZON}))
     assert result.is_error is True
     assert _envelope(result)["code"] == "FORECAST_REJECTED"
 
@@ -346,5 +373,13 @@ def test_capabilities_resource_reports_effective_limits() -> None:
     # Effective context is min(configured, engine) = 15360 for TimesFM-3.
     assert payload["limits"]["max_context_length"] == 15360
     assert payload["limits"]["quantile_levels"] == list(QUANTILE_LEVELS)
-    for backend_only in ("engine", "device", "max_variates", "max_series", "model_id"):
+    for backend_only in (
+        "engine",
+        "device",
+        "model_id",
+        "max_variates",
+        "max_targets",
+        "features",
+        "auth_required",
+    ):
         assert backend_only not in text

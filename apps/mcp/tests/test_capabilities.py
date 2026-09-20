@@ -63,7 +63,15 @@ def test_static_capabilities_are_semantic_only() -> None:
     assert caps.limits.quantile_levels == list(QUANTILE_LEVELS)
 
     dumped = caps.model_dump(mode="json")
-    for backend_only in ("engine", "device", "modes", "max_variates", "max_series", "model_id"):
+    for backend_only in (
+        "engine",
+        "device",
+        "model_id",
+        "max_variates",
+        "max_targets",
+        "features",
+        "auth_required",
+    ):
         assert backend_only not in dumped
         assert backend_only not in dumped["limits"]
 
