@@ -1,5 +1,7 @@
 # Precog
 
+**Website:** <https://albe83.github.io/precog/> — project landing page.
+
 Zero-shot forecasting with [TimesFM-3](https://research.google/blog/timesfm-3-a-zero-shot-foundation-model-for-multivariate-forecasting/).
 
 Precog has three supported v1 surfaces:
