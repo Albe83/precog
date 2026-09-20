@@ -1,10 +1,15 @@
 [project]
 name = "precog-schemas"
 version = "0.1.0"
-description = "Shared Pydantic schemas for the Precog REST API."
+description = "Canonical Pydantic wire models for the Precog Execution API."
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = ["pydantic>=2.7"]
+
+[project.urls]
+Repository = "https://github.com/Albe83/precog"
+Documentation = "https://github.com/Albe83/precog/blob/main/docs/sdk.md"
 
 [build-system]
 requires = ["hatchling"]
