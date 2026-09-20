@@ -11,8 +11,8 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.transport_security import TransportSecuritySettings
 
+from precog_client import AsyncPrecogClient
 from precog_mcp.__main__ import transport_security
-from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.observability import TOOL_CALLS, metrics_handler, record_tool_call
@@ -79,7 +79,7 @@ def _ok_handler(request: httpx.Request) -> httpx.Response:
 
 async def _run(handler, coro_factory, settings: Settings | None = None):
     settings = settings or Settings(api_url="http://api.test")
-    client = ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
+    client = AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(handler))
     server = create_server(settings, client=client)
     app = server.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -370,7 +370,7 @@ def test_missing_required_field_is_invalid_request() -> None:
 
 
 def test_unexpected_tool_failure_is_generic_internal_error() -> None:
-    client = ForecastApiClient("http://api.test", transport=httpx.MockTransport(_ok_handler))
+    client = AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(_ok_handler))
     server = create_server(Settings(api_url="http://api.test"), client=client)
 
     @server.tool(name="boom", description="crash for the test")
@@ -448,7 +448,7 @@ def test_record_tool_call_counts() -> None:
 
 
 def test_http_app_exposes_metrics() -> None:
-    client = ForecastApiClient("http://api.test", transport=httpx.MockTransport(_ok_handler))
+    client = AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(_ok_handler))
     server = create_server(Settings(api_url="http://api.test"), client=client)
     app = server.streamable_http_app()
 

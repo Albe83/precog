@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from precog_mcp.client import ApiError, ForecastApiClient
+from precog_client import AsyncPrecogClient, PrecogError
 from precog_mcp.models import (
     SEMANTIC_QUANTILE_LEVELS,
     BacktestCapability,
@@ -82,7 +82,7 @@ def limits_from_rest(payload: Mapping[str, Any]) -> PublicLimits:
     )
 
 
-async def load_capabilities(client: ForecastApiClient) -> SemanticCapabilities:
+async def load_capabilities(client: AsyncPrecogClient) -> SemanticCapabilities:
     """Return the semantic capabilities, consulting the API for public limits.
 
     If the execution API is unavailable or returns an unusable payload, the
@@ -92,9 +92,9 @@ async def load_capabilities(client: ForecastApiClient) -> SemanticCapabilities:
     """
     base = static_capabilities()
     try:
-        payload = await client.capabilities()
+        payload = await client.capabilities_payload()
         limits = limits_from_rest(payload)
-    except (ApiError, ValidationError):
+    except (PrecogError, ValidationError):
         return base
     return base.model_copy(update={"limits": limits})
 

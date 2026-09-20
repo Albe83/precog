@@ -9,11 +9,15 @@ they are missing, tracing is skipped with a warning.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 logger = logging.getLogger("precog.tracing")
 
 
-def setup_tracing(service_name: str = "precog-api", *, fastapi_app: object | None = None) -> bool:
+def setup_tracing(service_name: str = "precog-api", *, fastapi_app: FastAPI | None = None) -> bool:
     """Configure a tracer provider and instrument the FastAPI app.
 
     Returns ``True`` when tracing was configured, ``False`` when the optional

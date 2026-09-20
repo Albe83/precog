@@ -7,13 +7,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+from precog_client import AsyncPrecogClient
 from precog_mcp.capabilities import (
     BACKTEST_METRICS,
     limits_from_rest,
     load_capabilities,
     static_capabilities,
 )
-from precog_mcp.client import ForecastApiClient
 from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 
 pytestmark = pytest.mark.unit
@@ -44,8 +44,8 @@ def _rest_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
-def _client(handler) -> ForecastApiClient:
-    return ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
+def _client(handler) -> AsyncPrecogClient:
+    return AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(handler))
 
 
 def test_static_capabilities_are_semantic_only() -> None:

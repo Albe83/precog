@@ -1,6 +1,6 @@
-"""Synchronous Python client for the Precog REST API."""
+"""Synchronous and asynchronous Python clients for the Precog execution API."""
 
-from precog_client.client import PrecogClient
+from precog_client.client import AsyncPrecogClient, PrecogClient
 from precog_client.errors import (
     PrecogAPIError,
     PrecogConnectionError,
@@ -10,6 +10,7 @@ from precog_client.errors import (
 )
 
 __all__ = [
+    "AsyncPrecogClient",
     "PrecogAPIError",
     "PrecogClient",
     "PrecogConnectionError",

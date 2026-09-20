@@ -1,7 +1,8 @@
 # MCP server
 
 `apps/mcp` exposes Precog forecasting as MCP tools and a semantic capabilities
-resource. It talks to the REST API over HTTP and contains no model weights.
+resource. It talks to the REST API over HTTP through the official
+`AsyncPrecogClient` from the Python SDK and contains no model weights.
 
 The architectural role of the MCP server — the agent-facing semantic interface,
 with the REST API as its execution dependency — is recorded in

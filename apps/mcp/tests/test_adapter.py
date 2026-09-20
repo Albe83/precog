@@ -7,15 +7,15 @@ from typing import Any
 import httpx
 import pytest
 
+from precog_client import AsyncPrecogClient, PrecogAPIError
 from precog_mcp.adapter import (
     ErrorCode,
     ForecastAdapterError,
     execute_forecast,
     from_rest_response,
-    map_api_error,
+    map_client_error,
     to_rest_request,
 )
-from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.models import ForecastToolRequest
 
 pytestmark = pytest.mark.unit
@@ -196,8 +196,8 @@ def test_horizon_mismatch_is_rejected() -> None:
         from_rest_response(_request(), _rest_payload(["cpu_usage"], horizon=2))
 
 
-def _client(handler) -> ForecastApiClient:
-    return ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
+def _client(handler) -> AsyncPrecogClient:
+    return AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(handler))
 
 
 def test_execute_forecast_success() -> None:
@@ -304,9 +304,28 @@ def test_valid_problem_json_preserves_title_and_detail() -> None:
     assert info.value.message == "Unprocessable Entity: too long"
 
 
-def test_map_api_error_auth_is_unavailable() -> None:
-    error = map_api_error(ApiError("no auth", status=401))
+def test_map_client_error_auth_is_unavailable() -> None:
+    error = map_client_error(PrecogAPIError(401, "Unauthorized"))
     assert error.code is ErrorCode.API_UNAVAILABLE
+
+
+def test_malformed_success_body_maps_to_contract_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not json", headers={"content-type": "application/json"})
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.UPSTREAM_CONTRACT_ERROR
+    assert "not json" not in info.value.message
+
+
+def test_non_object_success_body_maps_to_contract_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[1, 2, 3])
+
+    with pytest.raises(ForecastAdapterError) as info:
+        asyncio.run(execute_forecast(_client(handler), _request()))
+    assert info.value.code is ErrorCode.UPSTREAM_CONTRACT_ERROR
 
 
 def test_to_payload_omits_empty_details() -> None:

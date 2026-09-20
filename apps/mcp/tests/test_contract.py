@@ -13,7 +13,7 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.transport_security import TransportSecuritySettings
 
-from precog_mcp.client import ForecastApiClient
+from precog_client import AsyncPrecogClient
 from precog_mcp.config import Settings
 from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.server import create_server
@@ -95,7 +95,7 @@ def handler(request: httpx.Request) -> httpx.Response:
 
 async def _run(coro_factory):
     settings = Settings(api_url="http://api.test")
-    client = ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
+    client = AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(handler))
     server = create_server(settings, client=client)
     app = server.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -226,7 +226,7 @@ def test_quantiles_cross_the_real_api_serialization_boundary() -> None:
     async def scenario() -> None:
         api = create_app(ApiSettings(engine="fake"), engine=FakeEngine())
         async with api.router.lifespan_context(api):
-            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            client = AsyncPrecogClient("http://api.test", transport=httpx.ASGITransport(app=api))
             server = create_server(Settings(api_url="http://api.test"), client=client)
             app = server.streamable_http_app(
                 transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -268,7 +268,7 @@ def test_backtest_crosses_the_real_api_serialization_boundary() -> None:
     async def scenario() -> None:
         api = create_app(ApiSettings(engine="fake"), engine=FakeEngine())
         async with api.router.lifespan_context(api):
-            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            client = AsyncPrecogClient("http://api.test", transport=httpx.ASGITransport(app=api))
             server = create_server(Settings(api_url="http://api.test"), client=client)
             app = server.streamable_http_app(
                 transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -313,7 +313,7 @@ def test_runtime_capability_violation_maps_to_forecast_rejected() -> None:
             ApiSettings(engine="fake", max_series=64), engine=FakeEngine(max_variates=1)
         )
         async with api.router.lifespan_context(api):
-            client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+            client = AsyncPrecogClient("http://api.test", transport=httpx.ASGITransport(app=api))
             server = create_server(Settings(api_url="http://api.test"), client=client)
             app = server.streamable_http_app(
                 transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)

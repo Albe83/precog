@@ -22,7 +22,13 @@ class PrecogValidationError(PrecogError):
 
 
 class PrecogAPIError(PrecogError):
-    """The API returned an error response (RFC 7807)."""
+    """The API returned an error response (RFC 7807).
+
+    ``media_type`` is the response content type without parameters, and
+    ``payload`` is the parsed response body when it was a JSON object. Both are
+    exposed so callers (e.g. the MCP boundary) can apply their own sanitization
+    instead of trusting an arbitrary upstream body.
+    """
 
     def __init__(
         self,
@@ -30,10 +36,12 @@ class PrecogAPIError(PrecogError):
         title: str,
         detail: str | None = None,
         payload: dict[str, Any] | None = None,
+        media_type: str | None = None,
     ) -> None:
         self.status_code = status_code
         self.title = title
         self.detail = detail
         self.payload = payload or {}
+        self.media_type = media_type
         message = f"{status_code} {title}" + (f": {detail}" if detail else "")
         super().__init__(message)
