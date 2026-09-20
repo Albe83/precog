@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.1.0](https://github.com/Albe83/precog/compare/v1.0.1...v1.1.0) (2026-09-20)
+
+
+### Features
+
+* **mcp:** add generic forecasting workflow prompts ([#245](https://github.com/Albe83/precog/issues/245)) ([a94b194](https://github.com/Albe83/precog/commit/a94b1940b80b9148ee9f87cd27ba18efd8eae597))
+
 ## [1.0.1](https://github.com/Albe83/precog/compare/v1.0.0...v1.0.1) (2026-09-20)
 
 
