@@ -3,6 +3,12 @@ name: publish-python-apps
 # Publishes the application Python distributions (`precog-api`, `precog-mcp`) to
 # PyPI as additional artifacts of an application release.
 #
+# This is a STANDALONE workflow: PyPI Trusted Publishing does not support
+# reusable (`workflow_call`) workflows, so it must be triggered by a direct
+# run. `release-please.yml` dispatches it via the workflow-dispatch API at the
+# release tag ref when `PYPI_APP_PUBLISH == 'true'`; operators can also dispatch
+# it manually.
+#
 # - built from the concrete release tag commit, never from a later main commit;
 # - PyPI Trusted Publishing (OIDC) via the protected `pypi` environment, no
 #   static token;
@@ -14,12 +20,6 @@ name: publish-python-apps
 # Containers and Helm remain the preferred deployment path.
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        description: Application release tag to publish (e.g. v1.0.0). Required.
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       tag:

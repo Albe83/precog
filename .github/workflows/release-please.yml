@@ -19,6 +19,10 @@ on:
         required: false
         type: boolean
         default: true
+      dispatch_pypi_tag:
+        description: Re-dispatch the application PyPI publisher for this tag (e.g. v1.0.0)
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -70,15 +74,58 @@ jobs:
       tag: ${{ needs.release-please.outputs.tag_name }}
 
   # Publish the application Python distributions (precog-api, precog-mcp) to
-  # PyPI. Opt-in via the repository variable PYPI_APP_PUBLISH so pre-v1 releases
+  # PyPI. PyPI Trusted Publishing does not support reusable workflows, so this
+  # dispatches the standalone `publish-python-apps.yml` via the workflow-dispatch
+  # API (GitHub allows a GITHUB_TOKEN-triggered run to create another dispatch
+  # run). Opt-in via the repository variable PYPI_APP_PUBLISH so pre-v1 releases
   # do not attempt to upload projects whose Trusted Publishers may not exist
   # yet; enable it for the deliberate v1.0.0 release.
+  #
+  # `dispatch_pypi_tag` is an operator/test escape hatch: it re-dispatches the
+  # publisher for a concrete tag without cutting a release. The publisher still
+  # validates the tag, so it cannot upload from unreleased `main`.
   pypi:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true' && vars.PYPI_APP_PUBLISH == 'true'
+    if: >-
+      (needs.release-please.outputs.release_created == 'true' && vars.PYPI_APP_PUBLISH == 'true')
+      || inputs.dispatch_pypi_tag != ''
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
-    uses: ./.github/workflows/publish-python-apps.yml
-    with:
-      tag: ${{ needs.release-please.outputs.tag_name }}
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.dispatch_pypi_tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Dispatch the standalone application publisher and wait for it
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          if [ -z "$tag" ]; then
+            echo "::error::no release tag to publish"
+            exit 1
+          fi
+          echo "dispatching publish-python-apps.yml at ref $tag"
+          before="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish-python-apps.yml \
+                     --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')"
+          gh workflow run publish-python-apps.yml --repo "$GITHUB_REPOSITORY" \
+            --ref "$tag" -f "tag=$tag"
+          run_id=""
+          for _ in $(seq 1 24); do
+            newest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish-python-apps.yml \
+                       --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')"
+            if [ "$newest" != "$before" ] && [ "$newest" != "0" ]; then run_id="$newest"; break; fi
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::could not find the dispatched publish-python-apps run"
+            exit 1
+          fi
+          url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id"
+          echo "child run: $url"
+          {
+            echo "### Application PyPI publication"
+            echo "- release tag: \`$tag\`"
+            echo "- dispatched run: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
