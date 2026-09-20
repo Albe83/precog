@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.2.2](https://github.com/Albe83/precog/compare/v1.2.1...v1.2.2) (2026-09-20)
+
+
+### Bug Fixes
+
+* **docs:** make landing quickstart use full Precog capability ([1d65e69](https://github.com/Albe83/precog/commit/1d65e694d72404055fec28d0335bf8c752ef5a65))
+
 ## [1.2.1](https://github.com/Albe83/precog/compare/v1.2.0...v1.2.1) (2026-09-20)
 
 
