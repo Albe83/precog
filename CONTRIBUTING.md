@@ -94,16 +94,26 @@ preferred production path). `publish-python-apps` is a **standalone** workflow
 cut and `PYPI_APP_PUBLISH` is set, `release-please.yml` dispatches it via the
 workflow-dispatch API at the release tag ref and waits for the run, so a failed
 publication fails the release. It builds from the concrete release tag commit
-and uploads via OIDC in the protected `pypi` environment — no static token, and
-never from a later `main` commit.
+and uploads via OIDC — no static token, and never from a later `main` commit.
 
 Bootstrap: publication is opt-in through the repository variable
 `PYPI_APP_PUBLISH`. Leave it unset for ordinary pre-v1 releases; enable it for
-the deliberate `v1.0.0` release after configuring a Trusted Publisher for both
-`precog-api` and `precog-mcp` against this repository, the
-`.github/workflows/publish-python-apps.yml` workflow and the `pypi` environment.
-The SDK pair (`precog-schemas`/`precog-client`) is a separate train and is not
-published here.
+the deliberate `v1.0.0` release after registering the Trusted Publishers below.
+
+PyPI enforces uniqueness of the `(owner, repo, workflow, environment)` tuple, so
+each package in a workflow needs its own environment. The exact identities are:
+
+| Project | Workflow | Environment |
+| ------- | -------- | ----------- |
+| `precog-schemas` | `.github/workflows/python-packages.yml` | `pypi` |
+| `precog-client` | `.github/workflows/python-packages.yml` | `pypi-client` |
+| `precog-api` | `.github/workflows/publish-python-apps.yml` | `pypi` |
+| `precog-mcp` | `.github/workflows/publish-python-apps.yml` | `pypi-mcp` |
+
+Create the empty GitHub environments (`pypi`, `pypi-client`, `pypi-mcp`) before
+registering the corresponding pending publishers. The SDK pair
+(`precog-schemas`/`precog-client`) remains a separate train and is not published
+by the application workflow.
 
 Retries are safe: API and MCP publish as independent jobs after a shared,
 validated build (package version is asserted to equal the release tag), and
