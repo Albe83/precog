@@ -467,6 +467,203 @@
       font-size: .9rem;
     }
 
+
+    /* Deployment selector */
+
+    .deployment {
+      position: relative;
+    }
+
+    .deploy-wrap {
+      margin-top: 30px;
+    }
+
+    .deploy-tabs {
+      position: relative;
+      z-index: 3;
+      display: inline-flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: -1px;
+    }
+
+    .deploy-tab {
+      appearance: none;
+      position: relative;
+      z-index: 1;
+      min-width: 225px;
+      min-height: 72px;
+      margin: 0;
+      padding: 13px 34px;
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--muted);
+      background: linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.025));
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      transition: color .18s ease, background .18s ease, filter .18s ease;
+    }
+
+    .deploy-tab:first-child {
+      padding-right: 44px;
+      clip-path: polygon(0 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+    }
+
+    .deploy-tab:last-child {
+      margin-left: -24px;
+      padding-left: 48px;
+      padding-right: 44px;
+      clip-path: polygon(24px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+    }
+
+    .deploy-tab:last-child::before {
+      content: "";
+      position: absolute;
+      left: 23px;
+      top: -4px;
+      width: 1px;
+      height: calc(100% + 8px);
+      background: rgba(255,255,255,.18);
+      transform: rotate(18deg);
+      transform-origin: center;
+    }
+
+    .deploy-tab:hover:not(.active) {
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+    }
+
+    .deploy-tab.active {
+      z-index: 2;
+      color: #161616;
+      background: linear-gradient(135deg, var(--orange) 0%, #fb9d55 53%, var(--sand) 100%);
+      filter: drop-shadow(0 10px 20px rgba(249,115,22,.15));
+    }
+
+    .deploy-tab.active::before {
+      background: rgba(30,20,10,.28);
+    }
+
+    .deploy-tab-title {
+      display: block;
+      font-size: 1.02rem;
+      font-weight: 850;
+      letter-spacing: -.012em;
+    }
+
+    .deploy-tab-subtitle {
+      display: block;
+      margin-top: 2px;
+      font-size: .76rem;
+      opacity: .68;
+    }
+
+    .deploy-rail {
+      height: 2px;
+      background: linear-gradient(90deg, var(--orange), rgba(249,115,22,.65) 30%, rgba(217,186,135,.3) 65%, transparent);
+    }
+
+    .deploy-panel {
+      display: none;
+    }
+
+    .deploy-panel.active {
+      display: block;
+    }
+
+    .deploy-content {
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      border-top: 0;
+      border-radius: 0 var(--radius) var(--radius) var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,.042), rgba(255,255,255,.022));
+      box-shadow: var(--shadow);
+    }
+
+    .deploy-grid {
+      display: grid;
+      grid-template-columns: 1.25fr .75fr;
+    }
+
+    .deploy-code {
+      min-width: 0;
+      background: #0b0b0b;
+      border-right: 1px solid rgba(255,255,255,.07);
+    }
+
+    .deploy-code-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      color: var(--muted);
+      background: rgba(255,255,255,.025);
+      font-size: .88rem;
+    }
+
+    .deploy-info {
+      padding: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.016));
+    }
+
+    .deploy-info-title {
+      margin: 0 0 16px;
+      color: var(--orange-2);
+      font-size: .82rem;
+      font-weight: 820;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .endpoint {
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px;
+      background: rgba(0,0,0,.18);
+    }
+
+    .endpoint strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: .92rem;
+    }
+
+    .endpoint code {
+      color: var(--sand-2);
+      font-size: .84rem;
+    }
+
+    .deploy-checks {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .deploy-check {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .deploy-check::before {
+      content: "✓";
+      color: var(--orange-2);
+      font-weight: 900;
+    }
+
+    .deploy-note {
+      padding: 15px 18px;
+      border-top: 1px solid rgba(255,255,255,.07);
+      background: rgba(255,255,255,.018);
+      color: var(--muted-2);
+      font-size: .86rem;
+    }
+
+    .deploy-note strong {
+      color: var(--text);
+    }
+
     .cta {
       position: relative;
       overflow: hidden;
@@ -538,8 +735,12 @@
     .footer-links a:hover { color: var(--text); }
 
     @media (max-width: 1040px) {
-      .hero-grid, .split, .grid-3, .steps { grid-template-columns: 1fr; }
+      .hero-grid, .split, .grid-3, .steps, .deploy-grid { grid-template-columns: 1fr; }
       .surface-grid { grid-template-columns: 1fr; }
+      .deploy-code {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+      }
     }
 
     @media (max-width: 760px) {
@@ -547,6 +748,23 @@
       .hero { padding-top: 54px; }
       h1 { max-width: none; }
       .actions .btn-secondary { display: none; }
+      .deploy-tabs { width: 100%; }
+      .deploy-tab {
+        flex: 1 1 50%;
+        min-width: 0;
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+      .deploy-tab:first-child {
+        padding-left: 16px;
+        padding-right: 30px;
+      }
+      .deploy-tab:last-child {
+        padding-left: 34px;
+        padding-right: 20px;
+      }
+      .deploy-tab-subtitle { display: none; }
+      .deploy-content { border-radius: 0 0 var(--radius) var(--radius); }
       .footer-inner { flex-direction: column; align-items: flex-start; }
     }
   </style>
@@ -563,12 +781,13 @@
         <a href="#why">Why Precog</a>
         <a href="#how">How it works</a>
         <a href="#surfaces">Interfaces</a>
+        <a href="#deploy">Deploy</a>
         <a href="#adopt">Adopt</a>
       </nav>
 
       <div class="actions">
         <a class="btn btn-secondary" href="https://github.com/Albe83/precog">GitHub</a>
-        <a class="btn btn-primary" href="#adopt">Start with Precog</a>
+        <a class="btn btn-primary" href="#deploy">Start with Precog</a>
       </div>
     </div>
   </header>
@@ -756,43 +975,154 @@ Do not pretend it predicts everything.</pre>
       </div>
     </section>
 
-    <section>
+    <section id="deploy" class="deployment">
       <div class="shell">
+        <div class="eyebrow">Deployment</div>
         <h2 class="section-title">Run the real thing.</h2>
         <p class="section-copy">
-          Start the full Precog capability with the published containers: the real TimesFM-3 execution API plus the MCP semantic interface.
-          The API downloads the pinned model weights on first start and keeps them in a local cache volume for subsequent runs.
+          Start the full Precog capability: the real TimesFM-3 execution engine, the REST Execution API and the MCP semantic interface.
+          Same capability. Choose the deployment path that fits your environment.
         </p>
 
-        <div class="code-card">
-          <div class="code-card-header">Full capability — API + TimesFM-3 + MCP</div>
-          <pre><span class="dim"># one-time local network and persistent model cache</span>
-<span class="sand">docker network create precog</span>
-<span class="sand">docker volume create precog-models</span>
+        <div class="deploy-wrap">
+          <div class="deploy-tabs" role="tablist" aria-label="Deployment options">
+            <button class="deploy-tab active" id="tab-docker" type="button" role="tab" aria-selected="true" aria-controls="panel-docker" data-target="docker">
+              <span class="deploy-tab-title">Docker</span>
+              <span class="deploy-tab-subtitle">Local / single host</span>
+            </button>
 
-<span class="dim"># real TimesFM-3 execution API — weights download automatically on first start</span>
-<span class="sand">docker run -d --name precog-api --network precog \
+            <button class="deploy-tab" id="tab-helm" type="button" role="tab" aria-selected="false" aria-controls="panel-helm" data-target="helm">
+              <span class="deploy-tab-title">Helm / Kubernetes</span>
+              <span class="deploy-tab-subtitle">Production / scalable</span>
+            </button>
+          </div>
+
+          <div class="deploy-rail"></div>
+
+          <div class="deploy-panel active" id="panel-docker" role="tabpanel" aria-labelledby="tab-docker">
+            <div class="deploy-content">
+              <div class="deploy-grid">
+                <div class="deploy-code">
+                  <div class="deploy-code-head">Full capability — Docker</div>
+                  <pre><span class="dim"># 1. Create network and persistent model cache</span>
+<span class="sand">docker network create precog
+docker volume create precog-models</span>
+
+<span class="dim"># 2. Start the real TimesFM-3 execution API</span>
+<span class="sand">docker run -d \
+  --name precog-api \
+  --network precog \
   -p 127.0.0.1:8000:8000 \
   -e PRECOG_ENGINE=timesfm3 \
   -v precog-models:/opt/precog/hf \
   ghcr.io/albe83/precog-api:latest</span>
 
-<span class="dim"># agent-facing MCP server</span>
-<span class="sand">docker run -d --name precog-mcp --network precog \
+<span class="dim"># 3. Start the agent-facing MCP server</span>
+<span class="sand">docker run -d \
+  --name precog-mcp \
+  --network precog \
   -p 127.0.0.1:8765:8765 \
   -e PRECOG_API_URL=http://precog-api:8000 \
   -e PRECOG_MCP_TRANSPORT=http \
   ghcr.io/albe83/precog-mcp:latest</span>
 
-<span class="dim"># API readiness and MCP endpoint</span>
-<span class="orange">curl http://127.0.0.1:8000/readyz</span>
-<span class="orange"># MCP: http://127.0.0.1:8765/mcp</span></pre>
-        </div>
+<span class="dim"># 4. Check readiness</span>
+<span class="orange">curl http://127.0.0.1:8000/readyz</span></pre>
+                </div>
 
-        <p class="note">
-          The first API start downloads the TimesFM-3 weights into <code>precog-models</code>; later starts reuse the cache.
-          For reproducible or production deployments, pin a released version or immutable image digest instead of <code>latest</code>.
-        </p>
+                <aside class="deploy-info">
+                  <div class="deploy-info-title">You'll get</div>
+
+                  <div class="endpoint">
+                    <strong>Execution API</strong>
+                    <code>http://127.0.0.1:8000</code>
+                  </div>
+
+                  <div class="endpoint">
+                    <strong>MCP endpoint</strong>
+                    <code>http://127.0.0.1:8765/mcp</code>
+                  </div>
+
+                  <div class="deploy-checks">
+                    <div class="deploy-check">Real TimesFM-3 inference</div>
+                    <div class="deploy-check">Automatic model download</div>
+                    <div class="deploy-check">Persistent model cache</div>
+                    <div class="deploy-check">REST Execution API</div>
+                    <div class="deploy-check">Agent-ready MCP interface</div>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="deploy-note">
+                <strong>Try-now channel:</strong> <code>latest</code> moves only with stable Precog releases.
+                The first API start downloads the pinned TimesFM-3 weights into <code>precog-models</code>; subsequent starts reuse the cache.
+                For reproducible deployments, pin <code>vX.Y.Z</code> or an immutable image digest.
+              </div>
+            </div>
+          </div>
+
+          <div class="deploy-panel" id="panel-helm" role="tabpanel" aria-labelledby="tab-helm" hidden>
+            <div class="deploy-content">
+              <div class="deploy-grid">
+                <div class="deploy-code">
+                  <div class="deploy-code-head">Full capability — Helm / Kubernetes</div>
+                  <pre><span class="dim"># 1. Install the latest stable published chart</span>
+<span class="sand">helm install precog \
+  oci://ghcr.io/albe83/precog-charts/precog \
+  --namespace precog \
+  --create-namespace \
+  --set image.repository=ghcr.io/albe83/precog-api \
+  --set image.tag=latest \
+  --set mcp.enabled=true \
+  --set mcp.service.enabled=true \
+  --set mcp.image.repository=ghcr.io/albe83/precog-mcp \
+  --set mcp.image.tag=latest</span>
+
+<span class="dim"># 2. Access the Execution API</span>
+<span class="sand">kubectl -n precog \
+  port-forward svc/precog 8000:80</span>
+
+<span class="dim"># 3. Access MCP</span>
+<span class="sand">kubectl -n precog \
+  port-forward svc/precog-mcp 8765:80</span>
+
+<span class="dim"># 4. Check readiness</span>
+<span class="orange">curl http://127.0.0.1:8000/readyz</span></pre>
+                </div>
+
+                <aside class="deploy-info">
+                  <div class="deploy-info-title">You'll get</div>
+
+                  <div class="endpoint">
+                    <strong>Execution API</strong>
+                    <code>http://127.0.0.1:8000</code>
+                  </div>
+
+                  <div class="endpoint">
+                    <strong>MCP endpoint</strong>
+                    <code>http://127.0.0.1:8765/mcp</code>
+                  </div>
+
+                  <div class="deploy-checks">
+                    <div class="deploy-check">Latest stable OCI Helm chart</div>
+                    <div class="deploy-check">Real TimesFM-3 inference</div>
+                    <div class="deploy-check">API and MCP deployed together</div>
+                    <div class="deploy-check">Kubernetes probes and resource controls</div>
+                    <div class="deploy-check">Optional persistent model cache</div>
+                    <div class="deploy-check">HPA, NetworkPolicy and Gateway-ready</div>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="deploy-note">
+                Helm resolves the newest published chart when <code>--version</code> is omitted; OCI chart tags themselves are SemVer, not <code>latest</code>.
+                The container images use Precog's stable <code>latest</code> channel.
+                For reproducible production deployments, set <code>--version X.Y.Z</code> and pin the matching image tags or immutable digests.
+                <a href="https://github.com/Albe83/precog/blob/main/deploy/helm/precog/README.md" style="color: var(--sand-2);">View Helm options →</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -830,5 +1160,31 @@ Do not pretend it predicts everything.</pre>
       </div>
     </div>
   </footer>
+
+  <script>
+    (() => {
+      const tabs = document.querySelectorAll(".deploy-tab");
+      const panels = document.querySelectorAll(".deploy-panel");
+
+      function activate(target) {
+        tabs.forEach((tab) => {
+          const active = tab.dataset.target === target;
+          tab.classList.toggle("active", active);
+          tab.setAttribute("aria-selected", active ? "true" : "false");
+        });
+
+        panels.forEach((panel) => {
+          const active = panel.id === `panel-${target}`;
+          panel.classList.toggle("active", active);
+          panel.hidden = !active;
+        });
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => activate(tab.dataset.target));
+      });
+    })();
+  </script>
+
 </body>
 </html>
