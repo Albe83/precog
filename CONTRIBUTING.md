@@ -89,10 +89,13 @@ To cut a major release (e.g. v1.0.0 for #201):
 
 `precog-api` and `precog-mcp` are also published to PyPI as secondary
 distributions of the same application release (containers/Helm remain the
-preferred production path). The `publish-python-apps` workflow builds them from
-the concrete release tag commit and uploads via PyPI Trusted Publishing (OIDC,
-protected `pypi` environment) — no static token, and never from a later `main`
-commit.
+preferred production path). `publish-python-apps` is a **standalone** workflow
+(PyPI Trusted Publishing does not support reusable workflows): when a release is
+cut and `PYPI_APP_PUBLISH` is set, `release-please.yml` dispatches it via the
+workflow-dispatch API at the release tag ref and waits for the run, so a failed
+publication fails the release. It builds from the concrete release tag commit
+and uploads via OIDC in the protected `pypi` environment — no static token, and
+never from a later `main` commit.
 
 Bootstrap: publication is opt-in through the repository variable
 `PYPI_APP_PUBLISH`. Leave it unset for ordinary pre-v1 releases; enable it for
@@ -108,8 +111,11 @@ uploads use `skip-existing`, so a successful API upload does not force a rebuild
 or a version change when MCP needs a retry. Re-publish an existing tag with:
 
 ```bash
-gh workflow run publish-python-apps.yml --ref main -f tag=v1.0.0
+gh workflow run publish-python-apps.yml --ref v1.0.0 -f tag=v1.0.0
 ```
+
+or re-dispatch it through the release workflow with
+`gh workflow run release-please.yml -f dispatch_pypi_tag=v1.0.0`.
 
 ## Branch protection
 
