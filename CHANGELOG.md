@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.3.0](https://github.com/Albe83/precog/compare/v1.2.2...v1.3.0) (2026-09-20)
+
+
+### Features
+
+* **docs:** add Docker and Helm deployment tabs ([ee401f5](https://github.com/Albe83/precog/commit/ee401f54f47ba66bc1a58b01fdc36286ae68cd70))
+
 ## [1.2.2](https://github.com/Albe83/precog/compare/v1.2.1...v1.2.2) (2026-09-20)
 
 
