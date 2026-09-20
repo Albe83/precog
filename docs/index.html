@@ -773,6 +773,7 @@ Do not pretend it predicts everything.</pre>
 <span class="dim"># real TimesFM-3 execution API — weights download automatically on first start</span>
 <span class="sand">docker run -d --name precog-api --network precog \
   -p 127.0.0.1:8000:8000 \
+  -e PRECOG_ENGINE=timesfm3 \
   -v precog-models:/opt/precog/hf \
   ghcr.io/albe83/precog-api:latest</span>
 
