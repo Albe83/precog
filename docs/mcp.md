@@ -263,10 +263,10 @@ apply. It is intended for discovery before the first call.
 
 This is deliberately **not** a mirror of the REST `GET /v1/capabilities`
 endpoint. The MCP resource translates the execution API's information into the
-semantic contract and drops backend/execution fields (engine, device, execution
-mode, per-forward-pass variate limits, covariate packing, calibration knobs,
-...). A backend concept is published here only when it is a meaningful
-Precog-level constraint for the caller.
+semantic contract and drops backend/execution fields (engine, device, model
+identifier, per-forward-pass variate budget, execution feature flags, ...). A
+backend concept is published here only when it is a meaningful Precog-level
+constraint for the caller.
 
 ### Schema
 

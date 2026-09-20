@@ -125,13 +125,14 @@ def test_capabilities_advertise_effective_limits() -> None:
     engine = FakeEngine(max_context=15360, max_variates=32)
     with make_client(engine, max_context=16384, max_series=64) as client:
         body = client.get("/v1/capabilities").json()
-    assert body["max_context"] == 15360
-    assert body["max_variates"] == 32
-    assert body["max_series"] == 64
+    assert body["limits"]["max_context"] == 15360
+    assert body["limits"]["max_variates"] == 32
+    assert body["limits"]["max_targets"] == 64
 
 
 def test_unbounded_engine_keeps_configured_capabilities() -> None:
     with make_client(FakeEngine(), max_context=16384, max_series=64) as client:
         body = client.get("/v1/capabilities").json()
-    assert body["max_context"] == 16384
-    assert body["max_variates"] == 64
+    assert body["limits"]["max_context"] == 16384
+    assert body["limits"]["max_variates"] is None
+    assert body["limits"]["max_targets"] == 64

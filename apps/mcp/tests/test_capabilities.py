@@ -21,18 +21,23 @@ pytestmark = pytest.mark.unit
 
 def _rest_payload(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "model": "timesfm-3.0",
-        "model_id": "google/timesfm-3.0",
-        "revision": None,
         "engine": "timesfm3",
+        "model": {"id": "google/timesfm-3.0", "revision": None},
         "device": "cpu",
-        "modes": ["univariate", "multivariate"],
-        "max_horizon": 1024,
-        "max_context": 15360,
-        "max_series": 64,
-        "max_variates": 32,
+        "limits": {
+            "max_horizon": 1024,
+            "max_context": 15360,
+            "max_variates": 32,
+            "max_targets": 64,
+        },
         "quantile_levels": list(QUANTILE_LEVELS),
-        "covariates": {"univariate": True, "multivariate": True},
+        "features": {
+            "point_forecast": True,
+            "probabilistic_forecast": True,
+            "past_covariates": True,
+            "known_future_covariates": True,
+            "joint_targets": True,
+        },
         "auth_required": False,
     }
     payload.update(overrides)
@@ -89,7 +94,7 @@ def test_limits_from_rest_requires_the_runtime_limit_fields() -> None:
 
 def test_load_capabilities_needs_only_the_runtime_limit_fields() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"max_horizon": 512, "max_context": 2048})
+        return httpx.Response(200, json={"limits": {"max_horizon": 512, "max_context": 2048}})
 
     caps = asyncio.run(load_capabilities(_client(handler)))
     assert caps.limits.max_horizon == 512
@@ -99,7 +104,7 @@ def test_load_capabilities_needs_only_the_runtime_limit_fields() -> None:
 
 def test_load_capabilities_falls_back_when_runtime_limits_missing() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"max_horizon": 512})
+        return httpx.Response(200, json={"limits": {"max_horizon": 512}})
 
     caps = asyncio.run(load_capabilities(_client(handler)))
     assert caps.limits.max_horizon is None

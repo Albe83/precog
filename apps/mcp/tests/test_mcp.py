@@ -48,18 +48,23 @@ def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
 
 def _capabilities_payload() -> dict[str, Any]:
     return {
-        "model": "timesfm-3.0",
-        "model_id": "google/timesfm-3.0",
-        "revision": None,
         "engine": "timesfm3",
+        "model": {"id": "google/timesfm-3.0", "revision": None},
         "device": "cpu",
-        "modes": ["univariate", "multivariate"],
-        "max_horizon": 1024,
-        "max_context": 15360,
-        "max_series": 64,
-        "max_variates": 32,
+        "limits": {
+            "max_horizon": 1024,
+            "max_context": 15360,
+            "max_variates": 32,
+            "max_targets": 64,
+        },
         "quantile_levels": list(QUANTILE_LEVELS),
-        "covariates": {"univariate": True, "multivariate": True},
+        "features": {
+            "point_forecast": True,
+            "probabilistic_forecast": True,
+            "past_covariates": True,
+            "known_future_covariates": True,
+            "joint_targets": True,
+        },
         "auth_required": False,
     }
 

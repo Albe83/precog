@@ -108,7 +108,7 @@ def test_invalid_payload_is_rejected_locally() -> None:
     assert called is False
 
 
-def test_unsupported_quantile_is_rejected_locally() -> None:
+def test_out_of_range_quantile_is_rejected_locally() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=VALID_RESPONSE)
 
@@ -117,7 +117,7 @@ def test_unsupported_quantile_is_rejected_locally() -> None:
             client.forecast(
                 horizon=1,
                 targets=[{"id": "a", "values": [1.0]}],
-                quantiles=[0.55],
+                quantiles=[1.0],
             )
 
 
@@ -141,17 +141,23 @@ def test_timeout_is_mapped() -> None:
 
 def test_capabilities_parses_response() -> None:
     payload = {
-        "model": "timesfm-3.0",
-        "model_id": "google/timesfm-3.0-pytorch",
-        "revision": "abc123",
         "engine": "timesfm3",
+        "model": {"id": "google/timesfm-3.0-pytorch", "revision": "abc123"},
         "device": "cpu",
-        "modes": ["univariate", "multivariate"],
-        "max_horizon": 1024,
-        "max_context": 16384,
-        "max_series": 64,
+        "limits": {
+            "max_horizon": 1024,
+            "max_context": 16384,
+            "max_variates": 32,
+            "max_targets": 64,
+        },
         "quantile_levels": [0.1, 0.5, 0.9],
-        "covariates": {"univariate": True, "multivariate": True},
+        "features": {
+            "point_forecast": True,
+            "probabilistic_forecast": True,
+            "past_covariates": True,
+            "known_future_covariates": True,
+            "joint_targets": True,
+        },
         "auth_required": False,
     }
 
@@ -162,5 +168,6 @@ def test_capabilities_parses_response() -> None:
     with _client(handler) as client:
         capabilities = client.capabilities()
 
-    assert capabilities.max_horizon == 1024
-    assert capabilities.modes[1].value == "multivariate"
+    assert capabilities.limits.max_horizon == 1024
+    assert capabilities.model.id == "google/timesfm-3.0-pytorch"
+    assert capabilities.features.joint_targets is True

@@ -20,6 +20,8 @@ from precog_api.execution import (
 class FakeEngine:
     """Deterministic engine that repeats the last observed value."""
 
+    _QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+
     def __init__(
         self,
         *,
@@ -42,6 +44,10 @@ class FakeEngine:
     @property
     def max_variates(self) -> int | None:
         return self._max_variates
+
+    @property
+    def quantile_levels(self) -> tuple[float, ...]:
+        return self._QUANTILE_LEVELS
 
     def predict(self, problem: ExecutionProblem) -> ExecutionResult:
         targets: list[TargetExecutionResult] = []

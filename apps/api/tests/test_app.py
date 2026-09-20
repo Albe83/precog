@@ -179,12 +179,20 @@ def test_capabilities_endpoint() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["max_horizon"] == 10
-    assert body["max_context"] == 99
-    assert body["max_series"] == 3
-    assert body["modes"] == ["univariate", "multivariate"]
-    assert body["covariates"] == {"univariate": True, "multivariate": True}
-    assert len(body["quantile_levels"]) == 9
+    assert body["engine"] == "fake"
+    assert body["model"]["id"] == "google/timesfm-3.0-pytorch"
+    assert body["limits"]["max_horizon"] == 10
+    assert body["limits"]["max_context"] == 99
+    assert body["limits"]["max_targets"] == 3
+    assert body["limits"]["max_variates"] is None
+    assert body["quantile_levels"] == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    assert body["features"] == {
+        "point_forecast": True,
+        "probabilistic_forecast": True,
+        "past_covariates": True,
+        "known_future_covariates": True,
+        "joint_targets": True,
+    }
     assert body["auth_required"] is False
 
 

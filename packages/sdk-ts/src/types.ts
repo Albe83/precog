@@ -1,5 +1,3 @@
-export type Mode = "univariate" | "multivariate";
-
 export interface HistoricalSeries {
   id: string;
   values: number[];
@@ -47,19 +45,28 @@ export interface ForecastResponse {
   usage: Usage;
 }
 
-export interface Capabilities {
-  model: string;
-  model_id: string;
-  revision?: string | null;
-  engine: string;
-  device: string;
-  modes: Mode[];
+export interface ExecutionLimits {
   max_horizon: number;
   max_context: number;
-  max_series: number;
   max_variates?: number | null;
+  max_targets: number;
+}
+
+export interface ExecutionFeatures {
+  point_forecast: boolean;
+  probabilistic_forecast: boolean;
+  past_covariates: boolean;
+  known_future_covariates: boolean;
+  joint_targets: boolean;
+}
+
+export interface Capabilities {
+  engine: string;
+  model: ModelProvenance;
+  device: string;
+  limits: ExecutionLimits;
   quantile_levels: number[];
-  covariates: Record<string, boolean>;
+  features: ExecutionFeatures;
   auth_required: boolean;
 }
 
