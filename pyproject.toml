@@ -27,7 +27,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["apps", "packages"]
+src = ["apps", "packages", "tools"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -45,7 +45,7 @@ no_implicit_optional = true
 check_untyped_defs = true
 
 [tool.pytest.ini_options]
-testpaths = ["apps", "packages"]
+testpaths = ["apps", "packages", "tools"]
 markers = [
     "unit: fast tests without the real model",
     "integration: tests that load the real engine",
