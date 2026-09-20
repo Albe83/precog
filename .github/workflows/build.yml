@@ -14,25 +14,55 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build image (no push)
+      - name: Build API image (no push)
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: Dockerfile
           push: false
           load: true
           tags: precog-api:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
 
-      - name: Report image size
+      - name: Build MCP image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.mcp
+          push: false
+          load: true
+          tags: precog-mcp:ci
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
+
+      - name: Report image sizes
         run: |
-          bytes=$(docker image inspect precog-api:ci --format '{{.Size}}')
-          echo "image size: $((bytes / 1024 / 1024)) MiB"
+          for image in precog-api:ci precog-mcp:ci; do
+            bytes=$(docker image inspect "$image" --format '{{.Size}}')
+            echo "$image size: $((bytes / 1024 / 1024)) MiB"
+          done
 
-      - name: Scan image (report only)
+      - name: Verify MCP image entrypoint and weight-free runtime
+        run: |
+          docker run --rm --entrypoint python precog-mcp:ci -c \
+            'import importlib.util; import precog_client, precog_mcp, precog_schemas; \
+             assert importlib.util.find_spec("torch") is None, "torch must not be in the MCP image"; \
+             print("precog-mcp imports OK; no torch/TimesFM runtime")'
+
+      - name: Scan API image (report only)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: precog-api:ci
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Scan MCP image (report only)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: precog-mcp:ci
           format: table
           exit-code: "0"
           severity: CRITICAL,HIGH
