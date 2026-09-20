@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-from precog_schemas import QUANTILE_LEVELS
+from benchmarks import QUANTILE_LEVELS
 
 DATA = Path(__file__).parent / "data" / "complex_series.json"
 OUT = Path(__file__).parent / "data" / "symmetric_averaging.json"

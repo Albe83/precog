@@ -15,8 +15,8 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.server import create_server
-from precog_schemas import QUANTILE_LEVELS
 
 INTEGRATION_CONTEXT = [31.2, 32.8, 35.1, 37.4, 41.2, 43.7]
 

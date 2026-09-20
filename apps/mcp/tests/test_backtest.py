@@ -15,13 +15,13 @@ from precog_mcp.adapter import (
     execute_backtest,
 )
 from precog_mcp.client import ForecastApiClient
+from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.models import (
     BacktestToolRequest,
     ForecastResult,
     ModelProvenance,
     TargetForecast,
 )
-from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.unit
 

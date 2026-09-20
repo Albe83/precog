@@ -36,7 +36,7 @@ def test_forecast_single_target() -> None:
         response = client.post("/v1/forecast", json=_payload())
         assert response.status_code == 200
         body = response.json()
-        assert body["model"]["id"] == "timesfm-3.0"
+        assert body["model"]["id"] == "google/timesfm-3.0-pytorch"
         assert body["horizon"] == 4
         assert body["targets"][0]["id"] == "a"
         assert len(body["targets"][0]["forecast"]) == 4

@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from precog_api.app import create_app
 from precog_api.config import Settings
 from precog_api.engine import FakeEngine
+from precog_api.execution import ExecutionProblem, ExecutionResult
 
 pytestmark = pytest.mark.unit
 
@@ -136,3 +137,36 @@ def test_unbounded_engine_keeps_configured_capabilities() -> None:
     assert body["limits"]["max_context"] == 16384
     assert body["limits"]["max_variates"] is None
     assert body["limits"]["max_targets"] == 64
+
+
+class _CountingEngine(FakeEngine):
+    """FakeEngine that records whether a prediction reached the engine."""
+
+    def __init__(self, *, quantile_levels: tuple[float, ...]) -> None:
+        super().__init__(quantile_levels=quantile_levels)
+        self.predict_calls = 0
+
+    def predict(self, problem: ExecutionProblem) -> ExecutionResult:
+        self.predict_calls += 1
+        return super().predict(problem)
+
+
+def test_runtime_quantile_grid_is_the_source_of_truth() -> None:
+    """Capabilities and API validation must use the engine's grid, not a constant."""
+    engine = _CountingEngine(quantile_levels=(0.25, 0.5, 0.75))
+    with make_client(engine) as client:
+        caps = client.get("/v1/capabilities").json()
+        assert caps["quantile_levels"] == [0.25, 0.5, 0.75]
+
+        supported = _single_target(4)
+        supported["quantiles"] = [0.25, 0.75]
+        assert client.post("/v1/forecast", json=supported).status_code == 200
+        assert engine.predict_calls == 1
+
+        unsupported = _single_target(4)
+        unsupported["quantiles"] = [0.1]
+        response = client.post("/v1/forecast", json=unsupported)
+        assert response.status_code == 422
+        assert "unsupported quantile" in response.json()["detail"]
+        # Rejected before predict, so no backend column lookup can occur.
+        assert engine.predict_calls == 1

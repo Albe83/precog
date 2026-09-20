@@ -1,7 +1,6 @@
 """Shared request/response schemas for the Precog REST API."""
 
 from precog_schemas.models import (
-    QUANTILE_LEVELS,
     Capabilities,
     ExecutionFeatures,
     ExecutionLimits,
@@ -16,7 +15,6 @@ from precog_schemas.models import (
 )
 
 __all__ = [
-    "QUANTILE_LEVELS",
     "Capabilities",
     "ExecutionFeatures",
     "ExecutionLimits",

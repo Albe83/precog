@@ -1,8 +1,11 @@
 """Consumer-facing MCP forecast contract.
 
 These models describe the forecasting problem exposed to MCP consumers and are
-independent from the REST/backend DTOs in :mod:`precog_schemas`. The adapter in
+independent from the REST/execution DTOs in :mod:`precog_schemas`. The adapter in
 :mod:`precog_mcp.adapter` maps between the two.
+
+The semantic quantile grid is owned by the MCP contract itself (#169/#170/#179):
+it is intentionally independent of execution/runtime capabilities.
 """
 
 from __future__ import annotations
@@ -17,7 +20,8 @@ from pydantic import (
     model_validator,
 )
 
-from precog_schemas import QUANTILE_LEVELS
+# The quantile levels the MCP semantic contract accepts, in ascending order.
+SEMANTIC_QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 # Reject ``NaN``/``+Inf``/``-Inf`` samples: the consumer must not rely on Precog
 # to clean or interpolate input data.
@@ -27,7 +31,7 @@ NonNegativeFloat = Annotated[float, Field(ge=0, allow_inf_nan=False)]
 Percent = Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
 
 _DEFAULT_QUANTILES: tuple[float, ...] = (0.1, 0.9)
-_QUANTILE_KEY_SET: frozenset[str] = frozenset(f"{level:.1f}" for level in QUANTILE_LEVELS)
+_QUANTILE_KEY_SET: frozenset[str] = frozenset(f"{level:.1f}" for level in SEMANTIC_QUANTILE_LEVELS)
 
 
 def quantile_key(level: float) -> str:
@@ -38,8 +42,8 @@ def quantile_key(level: float) -> str:
 def _validate_quantile_levels(levels: list[float]) -> list[float]:
     seen: set[float] = set()
     for level in levels:
-        if level not in QUANTILE_LEVELS:
-            allowed = ", ".join(f"{value:.1f}" for value in QUANTILE_LEVELS)
+        if level not in SEMANTIC_QUANTILE_LEVELS:
+            allowed = ", ".join(f"{value:.1f}" for value in SEMANTIC_QUANTILE_LEVELS)
             raise ValueError(f"unsupported quantile {level}; allowed values: {allowed}")
         if level in seen:
             raise ValueError(f"duplicate quantile {level}")
@@ -329,6 +333,7 @@ __all__ = [
     "KnownFutureSeries",
     "ModelProvenance",
     "PublicLimits",
+    "SEMANTIC_QUANTILE_LEVELS",
     "SemanticCapabilities",
     "TargetBacktest",
     "TargetForecast",

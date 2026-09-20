@@ -6,8 +6,6 @@ import math
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-
 
 class _StrictRequestModel(BaseModel):
     """Base for request DTOs: removed/unknown fields must fail closed."""

@@ -28,10 +28,14 @@ class FakeEngine:
         ready: bool = True,
         max_context: int | None = None,
         max_variates: int | None = None,
+        quantile_levels: tuple[float, ...] | None = None,
     ) -> None:
         self._ready = ready
         self._max_context = max_context
         self._max_variates = max_variates
+        self._quantile_levels = (
+            tuple(quantile_levels) if quantile_levels is not None else self._QUANTILE_LEVELS
+        )
 
     @property
     def ready(self) -> bool:
@@ -47,7 +51,7 @@ class FakeEngine:
 
     @property
     def quantile_levels(self) -> tuple[float, ...]:
-        return self._QUANTILE_LEVELS
+        return self._quantile_levels
 
     def predict(self, problem: ExecutionProblem) -> ExecutionResult:
         targets: list[TargetExecutionResult] = []

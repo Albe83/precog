@@ -17,12 +17,12 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from precog_mcp.client import ApiError, ForecastApiClient
 from precog_mcp.models import (
+    SEMANTIC_QUANTILE_LEVELS,
     BacktestCapability,
     ForecastCapability,
     PublicLimits,
     SemanticCapabilities,
 )
-from precog_schemas import QUANTILE_LEVELS
 
 BACKTEST_METRICS: tuple[str, ...] = ("mae", "rmse", "smape")
 
@@ -62,7 +62,7 @@ def static_capabilities() -> SemanticCapabilities:
             metrics=list(BACKTEST_METRICS),
             interval_coverage=True,
         ),
-        limits=PublicLimits(quantile_levels=list(QUANTILE_LEVELS)),
+        limits=PublicLimits(quantile_levels=list(SEMANTIC_QUANTILE_LEVELS)),
     )
 
 
@@ -78,7 +78,7 @@ def limits_from_rest(payload: Mapping[str, Any]) -> PublicLimits:
     return PublicLimits(
         max_horizon=response.limits.max_horizon,
         max_context_length=response.limits.max_context,
-        quantile_levels=list(QUANTILE_LEVELS),
+        quantile_levels=list(SEMANTIC_QUANTILE_LEVELS),
     )
 
 

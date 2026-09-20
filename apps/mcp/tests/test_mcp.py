@@ -14,9 +14,9 @@ from mcp.server.transport_security import TransportSecuritySettings
 from precog_mcp.__main__ import transport_security
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.observability import TOOL_CALLS, metrics_handler, record_tool_call
 from precog_mcp.server import create_server
-from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.unit
 

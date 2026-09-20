@@ -310,7 +310,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return to_forecast_response(
             payload,
             result,
-            model=settings.model_name,
+            model=settings.model_id,
             revision=settings.model_revision,
             latency_ms=round(latency_ms, 3),
         )

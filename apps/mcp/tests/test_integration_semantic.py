@@ -31,8 +31,8 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
+from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.server import create_server
-from precog_schemas import QUANTILE_LEVELS
 
 pytestmark = pytest.mark.integration
 
@@ -159,7 +159,7 @@ def test_multiple_related_targets_forecast_jointly() -> None:
         )
     )
     structured = _assert_result_shape(result, ["a", "b"])
-    assert structured["model"]["id"] == "timesfm-3.0"
+    assert structured["model"]["id"] == "google/timesfm-3.0-pytorch"
 
 
 def test_forecast_with_past_covariate() -> None:
@@ -268,7 +268,7 @@ def test_backtest_single_target_single_window() -> None:
     assert result.is_error is False
     structured = result.structured_content
     assert structured["horizon"] == HORIZON
-    assert structured["model"]["id"] == "timesfm-3.0"
+    assert structured["model"]["id"] == "google/timesfm-3.0-pytorch"
     target = structured["targets"][0]
     assert target["actual"] == pytest.approx(values[-HORIZON:])
     assert len(target["forecast"]) == HORIZON
