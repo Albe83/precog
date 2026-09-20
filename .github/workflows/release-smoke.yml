@@ -6,20 +6,20 @@ name: release-smoke
 # images and the published Helm OCI chart. Repository files are used only as
 # test orchestration.
 #
-# The Python scenario requires #199 (the `precog-schemas`/`precog-client` pair
-# must exist on PyPI). Until then it is expected to fail at
-# `pip install precog-client==<version>`, which is the signal that #199 is
-# still pending.
+# The Python scenarios install from PyPI: `precog-client` (SDK train) always,
+# and `precog-api`/`precog-mcp` (application train) when
+# `verify_application_pypi` is set. Real TimesFM inference is covered by the
+# separate integration gate, not here.
 
 on:
   workflow_dispatch:
     inputs:
       app_version:
-        description: Application release version (e.g. 0.21.1)
+        description: Application release version (e.g. 1.0.0)
         required: true
         type: string
       python_version:
-        description: Published Python package version (e.g. 0.1.0)
+        description: Published SDK package version (e.g. 0.1.0)
         required: true
         type: string
       app_tag:
@@ -282,9 +282,11 @@ jobs:
           docker pull "$mcp_ref"
           api_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$api_ref")"
           mcp_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$mcp_ref")"
-          echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
-          echo "mcp_digest=$mcp_digest" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "api_digest=$api_digest"
+            echo "mcp_digest=$mcp_digest"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Start the published API and MCP images
         run: |
