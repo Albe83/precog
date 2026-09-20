@@ -758,22 +758,40 @@ Do not pretend it predicts everything.</pre>
 
     <section>
       <div class="shell">
-        <h2 class="section-title">Start small.</h2>
+        <h2 class="section-title">Run the real thing.</h2>
         <p class="section-copy">
-          Run Precog locally with the fake engine for contract testing, or connect the real TimesFM-3 runtime when you are ready to evaluate real forecasts.
+          Start the full Precog capability with the published containers: the real TimesFM-3 execution API plus the MCP semantic interface.
+          The API downloads the pinned model weights on first start and keeps them in a local cache volume for subsequent runs.
         </p>
 
         <div class="code-card">
-          <div class="code-card-header">Local development</div>
-          <pre><span class="dim"># install the workspace</span>
-<span class="sand">uv sync --all-packages</span>
+          <div class="code-card-header">Full capability — API + TimesFM-3 + MCP</div>
+          <pre><span class="dim"># one-time local network and persistent model cache</span>
+<span class="sand">docker network create precog</span>
+<span class="sand">docker volume create precog-models</span>
 
-<span class="dim"># start the execution API with the deterministic fake engine</span>
-<span class="orange">PRECOG_ENGINE=fake</span> <span class="sand">uv run precog-api</span>
+<span class="dim"># real TimesFM-3 execution API — weights download automatically on first start</span>
+<span class="sand">docker run -d --name precog-api --network precog \
+  -p 127.0.0.1:8000:8000 \
+  -v precog-models:/opt/precog/hf \
+  ghcr.io/albe83/precog-api:latest</span>
 
-<span class="dim"># expose the semantic MCP surface</span>
-<span class="orange">PRECOG_API_URL=http://localhost:8000</span> <span class="sand">uv run --no-sync precog-mcp</span></pre>
+<span class="dim"># agent-facing MCP server</span>
+<span class="sand">docker run -d --name precog-mcp --network precog \
+  -p 127.0.0.1:8765:8765 \
+  -e PRECOG_API_URL=http://precog-api:8000 \
+  -e PRECOG_MCP_TRANSPORT=http \
+  ghcr.io/albe83/precog-mcp:latest</span>
+
+<span class="dim"># API readiness and MCP endpoint</span>
+<span class="orange">curl http://127.0.0.1:8000/readyz</span>
+<span class="orange"># MCP: http://127.0.0.1:8765/mcp</span></pre>
         </div>
+
+        <p class="note">
+          The first API start downloads the TimesFM-3 weights into <code>precog-models</code>; later starts reuse the cache.
+          For reproducible or production deployments, pin a released version or immutable image digest instead of <code>latest</code>.
+        </p>
       </div>
     </section>
 
