@@ -26,6 +26,11 @@ on:
         description: Application release tag (default v<app_version>)
         required: false
         type: string
+      verify_application_pypi:
+        description: Verify published precog-api/precog-mcp from PyPI
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -81,6 +86,108 @@ jobs:
           {
             echo "### Python SDK scenario"
             echo "- precog-client version: \`${{ inputs.python_version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  application-pypi:
+    if: inputs.verify_application_pypi
+    name: python apps precog-api/mcp==${{ inputs.app_version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install published application packages in a clean environment
+        run: |
+          set -euo pipefail
+          python -m venv .app-pypi
+          .app-pypi/bin/pip install --upgrade pip
+          .app-pypi/bin/pip install             "precog-api==${{ inputs.app_version }}"             "precog-mcp==${{ inputs.app_version }}"
+          for command in precog-api precog-mcp precog-download-model; do
+            test -x ".app-pypi/bin/$command" || { echo "missing entry point: $command"; exit 1; }
+          done
+          .app-pypi/bin/python - <<'PY'
+          import importlib.metadata as metadata
+          import pathlib
+
+          import precog_api
+          import precog_mcp
+
+          expected = "${{ inputs.app_version }}"
+          for distribution, module in (("precog-api", precog_api), ("precog-mcp", precog_mcp)):
+              assert metadata.version(distribution) == expected
+              path = pathlib.Path(module.__file__).resolve()
+              assert "site-packages" in path.parts, f"not installed from PyPI/site-packages: {path}"
+              files = metadata.distribution(distribution).files or []
+              forbidden = [
+                  str(file)
+                  for file in files
+                  if pathlib.PurePosixPath(str(file)).suffix.lower()
+                  in {".safetensors", ".gguf", ".pt", ".pth", ".onnx"}
+              ]
+              assert not forbidden, f"model payloads found in {distribution}: {forbidden}"
+              print(distribution, expected, path)
+
+          try:
+              metadata.version("timesfm")
+          except metadata.PackageNotFoundError:
+              print("base precog-api install is weight/runtime-light: timesfm is not installed")
+          else:
+              raise AssertionError("base precog-api unexpectedly installed timesfm; engine must stay optional")
+          PY
+
+      - name: Installed API serves canonical contract with fake engine
+        run: |
+          set -euo pipefail
+          PRECOG_ENGINE=fake .app-pypi/bin/precog-api > app-pypi-api.log 2>&1 &
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null 2>&1; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then cat app-pypi-api.log; exit 1; fi
+          curl -fsS http://127.0.0.1:8000/v1/capabilities > app-pypi-caps.json
+          curl -fsS -X POST http://127.0.0.1:8000/v1/forecast             -H 'content-type: application/json'             -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}'             > app-pypi-forecast.json
+          .app-pypi/bin/python - <<'PY'
+          import json
+
+          caps = json.load(open("app-pypi-caps.json"))
+          assert caps["engine"] == "fake", caps
+          result = json.load(open("app-pypi-forecast.json"))
+          assert "results" not in result and "mode" not in result, result
+          target = result["targets"][0]
+          assert len(target["forecast"]) == 3, target
+          assert {q["level"] for q in target["quantiles"]} == {0.1, 0.9}, target
+          print("PyPI-installed API canonical forecast OK")
+          PY
+
+      - name: Installed MCP serves semantic contract against installed API
+        run: |
+          set -euo pipefail
+          PRECOG_API_URL=http://127.0.0.1:8000           PRECOG_MCP_TRANSPORT=http           PRECOG_MCP_PORT=8765             .app-pypi/bin/precog-mcp > app-pypi-mcp.log 2>&1 &
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8765/metrics >/dev/null 2>&1; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then cat app-pypi-mcp.log; exit 1; fi
+          .app-pypi/bin/python deploy/smoke/mcp_smoke.py --url http://127.0.0.1:8765/mcp
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat app-pypi-api.log 2>/dev/null || true
+          cat app-pypi-mcp.log 2>/dev/null || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Application PyPI scenario"
+            echo "- precog-api version: `${{ inputs.app_version }}`"
+            echo "- precog-mcp version: `${{ inputs.app_version }}`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   api-image:
@@ -302,7 +409,7 @@ jobs:
   report:
     name: smoke summary
     runs-on: ubuntu-latest
-    needs: [python-sdk, api-image, mcp-image, helm-chart]
+    needs: [python-sdk, application-pypi, api-image, mcp-image, helm-chart]
     if: always()
     steps:
       - name: Report versions and digests under test
@@ -313,6 +420,7 @@ jobs:
             echo "| Artifact | Version / digest | Result |"
             echo "| --- | --- | --- |"
             echo "| Python SDK | precog-client==${{ inputs.python_version }} | ${{ needs.python-sdk.result }} |"
+            echo "| API/MCP PyPI | precog-api/mcp==${{ inputs.app_version }} | ${{ needs.application-pypi.result }} |"
             echo "| API image | ${{ needs.api-image.outputs.digest }} | ${{ needs.api-image.result }} |"
             echo "| MCP image | ${{ needs.mcp-image.outputs.mcp_digest }} | ${{ needs.mcp-image.result }} |"
             echo "| Helm chart | ${{ needs.helm-chart.outputs.chart_version }} | ${{ needs.helm-chart.result }} |"
