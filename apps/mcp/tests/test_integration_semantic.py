@@ -29,7 +29,7 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.transport_security import TransportSecuritySettings
 
-from precog_mcp.client import ForecastApiClient
+from precog_client import AsyncPrecogClient
 from precog_mcp.config import Settings
 from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.server import create_server
@@ -80,7 +80,7 @@ async def _run_session(action):
         engine=_model_engine(),
     )
     async with api.router.lifespan_context(api):
-        client = ForecastApiClient("http://api.test", transport=httpx.ASGITransport(app=api))
+        client = AsyncPrecogClient("http://api.test", transport=httpx.ASGITransport(app=api))
         server = create_server(Settings(api_url="http://api.test"), client=client)
         app = server.streamable_http_app(
             transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)

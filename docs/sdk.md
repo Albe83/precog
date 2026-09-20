@@ -1,7 +1,8 @@
 # Python SDK
 
-`packages/sdk-python` provides a synchronous, typed client for the Precog REST
-API. It reuses the shared Pydantic models from `packages/schemas`.
+`packages/sdk-python` provides typed synchronous and asynchronous clients for the
+Precog execution API. They share the `precog_schemas` models and the typed error
+classes.
 
 ## Install (from this repository)
 
@@ -58,6 +59,30 @@ point = client.forecast(
 
 You can also send an already-built `ForecastRequest` with
 `client.forecast_request(request)`.
+
+## Async client
+
+`AsyncPrecogClient` mirrors `PrecogClient` (`forecast`, `forecast_request`,
+`capabilities`) with the same request models, retry/backoff and typed errors.
+
+```python
+import asyncio
+
+from precog_client import AsyncPrecogClient
+
+
+async def main() -> None:
+    async with AsyncPrecogClient("http://localhost:8000") as client:
+        response = await client.forecast(
+            horizon=4,
+            targets=[{"id": "sales", "values": [100, 102, 101, 105, 107, 106, 108, 109]}],
+            quantiles=[0.1, 0.9],
+        )
+        print(response.targets[0].forecast)
+
+
+asyncio.run(main())
+```
 
 ## Auth and tuning
 

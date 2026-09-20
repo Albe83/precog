@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
+from precog_client import AsyncPrecogClient
 from precog_mcp.adapter import (
     ErrorCode,
     ForecastAdapterError,
@@ -14,7 +15,6 @@ from precog_mcp.adapter import (
     evaluate_backtest,
     execute_backtest,
 )
-from precog_mcp.client import ForecastApiClient
 from precog_mcp.models import SEMANTIC_QUANTILE_LEVELS as QUANTILE_LEVELS
 from precog_mcp.models import (
     BacktestToolRequest,
@@ -84,8 +84,8 @@ def _rest_payload(ids: list[str], horizon: int, forecast: list[float]) -> dict[s
     }
 
 
-def _client(handler) -> ForecastApiClient:
-    return ForecastApiClient("http://api.test", transport=httpx.MockTransport(handler))
+def _client(handler) -> AsyncPrecogClient:
+    return AsyncPrecogClient("http://api.test", transport=httpx.MockTransport(handler))
 
 
 def test_split_holds_out_the_tail_and_splits_covariates() -> None:

@@ -81,7 +81,7 @@ All settings use the `PRECOG_` prefix (see `apps/api/src/precog_api/config.py`):
 apps/api            FastAPI service (engine + HTTP)
 apps/mcp            MCP server exposing the forecast tool
 packages/schemas    Shared Pydantic models
-packages/sdk-python Synchronous Python client
+packages/sdk-python Python execution clients (sync + async)
 packages/sdk-ts     TypeScript client (browser / Node)
 webui               Minimal web UI built on the TypeScript SDK
 benchmarks          Backtests against real Grafana/Thanos series

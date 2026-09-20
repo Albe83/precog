@@ -8,13 +8,13 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field, ValidationError
 
+from precog_client import AsyncPrecogClient
 from precog_mcp.adapter import (
     ForecastAdapterError,
     execute_backtest,
     execute_forecast,
 )
 from precog_mcp.capabilities import load_capabilities
-from precog_mcp.client import ForecastApiClient
 from precog_mcp.config import Settings
 from precog_mcp.errors import (
     ToolErrorMiddleware,
@@ -74,12 +74,14 @@ CAPABILITIES_DESCRIPTION = (
 
 def create_server(
     settings: Settings | None = None,
-    client: ForecastApiClient | None = None,
+    client: AsyncPrecogClient | None = None,
 ) -> MCPServer:
     """Build the MCP server with the ``forecast`` and ``backtest`` tools."""
     settings = settings or Settings()
-    client = client or ForecastApiClient(
-        settings.api_url, settings.api_key, settings.request_timeout_s
+    client = client or AsyncPrecogClient(
+        settings.api_url,
+        api_key=settings.api_key,
+        timeout=settings.request_timeout_s,
     )
     if settings.otel_enabled:
         setup_tracing(settings.otel_service_name)

@@ -1,8 +1,9 @@
 """Anti-corruption adapter between the MCP contract and the Precog REST API.
 
-The MCP server remains an HTTP client of ``POST /v1/forecast``. This module owns
-the translation so the public tool surface never leaks REST/backend DTOs or
-TimesFM-specific execution controls.
+The MCP server is an HTTP client of ``POST /v1/forecast`` through the official
+:class:`~precog_client.AsyncPrecogClient`. This module owns the translation so
+the public tool surface never leaks REST/backend DTOs or TimesFM-specific
+execution controls, and it owns the sanitization of upstream failures.
 """
 
 from __future__ import annotations
@@ -14,7 +15,13 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from precog_mcp.client import ApiError, ForecastApiClient
+from precog_client import (
+    AsyncPrecogClient,
+    PrecogAPIError,
+    PrecogConnectionError,
+    PrecogError,
+    PrecogTimeoutError,
+)
 from precog_mcp.models import (
     BacktestMetrics,
     BacktestResult,
@@ -39,6 +46,9 @@ from precog_schemas import (
 from precog_schemas import (
     KnownFutureSeries as RestKnownFutureSeries,
 )
+
+PROBLEM_MEDIA_TYPE = "application/problem+json"
+UNAVAILABLE_MESSAGE = "Precog API is unavailable"
 
 
 class ErrorCode(StrEnum):
@@ -167,25 +177,63 @@ def from_rest_response(request: ForecastToolRequest, payload: Mapping[str, Any])
     )
 
 
-def map_api_error(exc: ApiError) -> ForecastAdapterError:
-    """Translate a REST client failure into a typed MCP-side error."""
-    if exc.status is None or exc.status in (401, 403):
-        return ForecastAdapterError(ErrorCode.API_UNAVAILABLE, str(exc))
-    if exc.status >= 500:
-        return ForecastAdapterError(ErrorCode.INFERENCE_FAILED, str(exc), status=exc.status)
-    return ForecastAdapterError(ErrorCode.FORECAST_REJECTED, str(exc), status=exc.status)
+def map_client_error(exc: PrecogError) -> ForecastAdapterError:
+    """Translate an SDK client failure into a typed, sanitized MCP-side error.
+
+    Error codes are stable: connectivity/timeouts and 401/403 map to
+    ``API_UNAVAILABLE``; 5xx to ``INFERENCE_FAILED``; other 4xx rejections to
+    ``FORECAST_REJECTED``; malformed/unexpected upstream contracts to
+    ``UPSTREAM_CONTRACT_ERROR``. Messages never forward raw URLs, hosts, proxy
+    or TLS details.
+    """
+    if isinstance(exc, (PrecogConnectionError, PrecogTimeoutError)):
+        return ForecastAdapterError(ErrorCode.API_UNAVAILABLE, UNAVAILABLE_MESSAGE)
+    if isinstance(exc, PrecogAPIError):
+        return _map_api_error(exc)
+    return ForecastAdapterError(
+        ErrorCode.UPSTREAM_CONTRACT_ERROR,
+        "Precog API returned a malformed forecast response",
+    )
+
+
+def _map_api_error(exc: PrecogAPIError) -> ForecastAdapterError:
+    status = exc.status_code
+    message = _sanitized_message(exc)
+    if status in (401, 403):
+        return ForecastAdapterError(ErrorCode.API_UNAVAILABLE, message)
+    if status >= 500:
+        return ForecastAdapterError(ErrorCode.INFERENCE_FAILED, message, status=status)
+    return ForecastAdapterError(ErrorCode.FORECAST_REJECTED, message, status=status)
+
+
+def _sanitized_message(exc: PrecogAPIError) -> str:
+    """Rebuild a problem message from trusted fields only, else stay generic."""
+    if (
+        exc.status_code >= 400
+        and exc.media_type == PROBLEM_MEDIA_TYPE
+        and isinstance(exc.payload, Mapping)
+    ):
+        raw_title = exc.payload.get("title")
+        raw_detail = exc.payload.get("detail")
+        title = raw_title if isinstance(raw_title, str) and raw_title else None
+        detail = raw_detail if isinstance(raw_detail, str) and raw_detail else None
+        if detail is not None:
+            return f"{title or 'error'}: {detail}"
+        if title is not None:
+            return title
+    return f"Precog API error (HTTP {exc.status_code})"
 
 
 async def execute_forecast(
-    client: ForecastApiClient, request: ForecastToolRequest
+    client: AsyncPrecogClient, request: ForecastToolRequest
 ) -> ForecastResult:
-    """Run one forecast through the REST API, mapping every failure."""
+    """Run one forecast through the official execution client."""
     rest_request = to_rest_request(request)
     try:
-        payload = await client.forecast(rest_request.model_dump(mode="json"))
-    except ApiError as exc:
-        raise map_api_error(exc) from exc
-    return from_rest_response(request, payload)
+        response = await client.forecast_request(rest_request)
+    except PrecogError as exc:
+        raise map_client_error(exc) from exc
+    return from_rest_response(request, response.model_dump(mode="json"))
 
 
 def backtest_to_forecast_request(request: BacktestToolRequest) -> ForecastToolRequest:
@@ -259,7 +307,7 @@ def evaluate_backtest(request: BacktestToolRequest, result: ForecastResult) -> B
 
 
 async def execute_backtest(
-    client: ForecastApiClient, request: BacktestToolRequest
+    client: AsyncPrecogClient, request: BacktestToolRequest
 ) -> BacktestResult:
     """Run one backtest through the same semantic forecast path as ``forecast``."""
     result = await execute_forecast(client, backtest_to_forecast_request(request))
@@ -338,6 +386,6 @@ __all__ = [
     "execute_backtest",
     "execute_forecast",
     "from_rest_response",
-    "map_api_error",
+    "map_client_error",
     "to_rest_request",
 ]
