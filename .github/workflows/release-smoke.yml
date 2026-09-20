@@ -282,9 +282,11 @@ jobs:
           docker pull "$mcp_ref"
           api_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$api_ref")"
           mcp_digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$mcp_ref")"
-          echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
-          echo "mcp_digest=$mcp_digest" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "api_digest=$api_digest"
+            echo "mcp_digest=$mcp_digest"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Start the published API and MCP images
         run: |
