@@ -351,6 +351,38 @@ infrastructure details.
 }
 ```
 
+## Prompts (optional workflows)
+
+The server also advertises a small set of **MCP prompts**: reusable forecasting
+workflows a user can invoke explicitly from a prompt-aware client. They are
+optional recipes, not hidden policy, and they are deliberately distinct from the
+always-on guidance:
+
+- the **server instructions**, **tool descriptions** and
+  `precog://capabilities` describe the stable *meaning* of the operations and are
+  part of the always-on semantic surface;
+- **prompts** compose those public concepts into an explicit *evaluation
+  workflow*. A client that never invokes prompts sees no difference in the
+  `forecast`/`backtest` request or response schemas.
+
+Both prompts take a single optional `objective` argument (a free-text description
+of the forecasting decision); they do not take target arrays, horizon, quantiles
+or data-source parameters, which belong to the tools or come from the user's
+request.
+
+| Prompt | Purpose |
+| ------ | ------- |
+| `evaluate_forecastability` | Decide whether Precog provides useful forecasting signal for a problem: prepare equally sampled, time-aligned series, start from `backtest`, interpret metrics per target, compare against a simple baseline, repeat across cutoffs when justified, and report uncertainty. |
+| `compare_joint_vs_independent` | Decide whether related targets benefit from being forecast jointly: identical data/horizon for both variants, one joint backtest versus independent per-target backtests, per-target comparison, multiple cutoffs when practical, and relative-only conclusions. |
+
+Prompts are intentionally domain-generic: they encode *how to use forecasting
+well*, not *what business problem to solve*. They contain no vertical
+(infrastructure, sales, finance, ...) assumptions, no fixed success thresholds
+such as a specific sMAPE band, no backend internals, and no data-source
+assumptions — any data acquisition uses whatever tools the host environment
+provides. If the user states an objective, pass it as `objective`; otherwise the
+prompt guides the model from the current conversation context.
+
 ## Errors
 
 Invalid requests and inference failures are real MCP tool errors

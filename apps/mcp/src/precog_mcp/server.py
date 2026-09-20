@@ -32,6 +32,7 @@ from precog_mcp.models import (
     SemanticCapabilities,
 )
 from precog_mcp.observability import metrics_handler
+from precog_mcp.prompts import register_prompts
 from precog_mcp.tracing import setup_tracing
 
 SERVER_INSTRUCTIONS = (
@@ -128,6 +129,7 @@ def create_server(
         middleware=[ToolErrorMiddleware()],
     )
     server.custom_route("/metrics", methods=["GET"], include_in_schema=False)(metrics_handler)
+    register_prompts(server)
 
     @server.tool(name="forecast", description=TOOL_DESCRIPTION)
     async def forecast(
