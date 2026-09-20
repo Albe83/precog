@@ -13,7 +13,7 @@ Commit and PR titles follow [Conventional Commits 1.0.0](https://www.conventiona
 ```
 
 Allowed types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `build`, `ci`, `perf`, `spike`.
-Allowed scopes: `api`, `mcp`, `sdk`, `deploy`, `ci`, `docs`, `repo`.
+Allowed scopes: `api`, `mcp`, `sdk`, `webui`, `deploy`, `deps`, `ci`, `docs`, `repo`.
 
 Examples:
 
@@ -23,9 +23,10 @@ Examples:
 
 ## Backlog
 
-Work is tracked as GitHub issues grouped by milestones (`M0`–`M5`). Each batch
-corresponds to a milestone and its issues carry `batch:N` labels. Dependencies
-are expressed as task lists inside each issue body.
+Work is tracked as GitHub issues and grouped by milestone in the *Precog
+Roadmap* project. Dependencies are expressed as task lists inside each issue
+body. Older `M0`–`M5` / `batch:N` labels are historical and are not the current
+operating model.
 
 ## Commands
 
@@ -50,8 +51,16 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg
 
 - `pre-commit` runs ruff (lint + format) and validates the commit message.
 - PR titles are checked in CI (`pr-title` workflow) with the same types/scopes.
-- `release-please` opens a release PR from `main`; merging it tags the source and
-  updates `CHANGELOG.md`. No artifacts (no weights, no images) are published.
+- `release-please` opens a release PR from `main`; merging it tags the source,
+  updates `CHANGELOG.md`, and publishes the release artifacts through the
+  release workflows: the weight-free `precog-api` and `precog-mcp` images and
+  the Helm chart (OCI + GitHub release `.tgz`). Model weights are never
+  published. The `precog-schemas`/`precog-client` Python pair is versioned
+  independently and published manually from `main` (`python-packages`
+  workflow), not by release-please.
+- Release PRs are merged by the `autorelease` workflow. A release PR that would
+  cross a major version is not auto-merged and must be reviewed and merged
+  deliberately.
 
 ## Branch protection
 
