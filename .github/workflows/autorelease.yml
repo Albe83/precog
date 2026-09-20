@@ -30,6 +30,12 @@ permissions:
   pull-requests: write
   actions: write
 
+# Only one controller may actively process release PRs. A newer run queues
+# instead of racing (and never cancels a run that is mid-decision).
+concurrency:
+  group: autorelease
+  cancel-in-progress: false
+
 jobs:
   merge-release-pr:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
@@ -46,7 +52,19 @@ jobs:
                 --jq '[.[] | select(.headRefName | startswith("release-please--"))][0].number // empty')
           if [ -z "$pr" ]; then echo "no release PR open"; exit 0; fi
           branch=$(gh pr view "$pr" --repo "$repo" --json headRefName --jq .headRefName)
-          echo "release PR #$pr on $branch"
+          state=$(gh pr view "$pr" --repo "$repo" --json state --jq .state)
+          echo "release PR #$pr on $branch (state: $state)"
+
+          if [ "$state" = "MERGED" ]; then
+            echo "release PR #$pr was already merged; nothing to do"
+            { echo "## Release PR already merged"; echo "PR #$pr is merged; skipping merge/dispatch."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$state" != "OPEN" ]; then
+            echo "::notice::release PR #$pr is $state (not open); nothing to do"
+            { echo "## Release PR $state"; echo "PR #$pr is no longer open; not merging."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           read_manifest_version() {
             gh api "repos/$repo/contents/.release-please-manifest.json?ref=$1" --jq .content \
@@ -79,12 +97,41 @@ jobs:
           done
 
           for _ in $(seq 1 90); do
-            state=$(gh pr view "$pr" --repo "$repo" --json mergeStateStatus --jq .mergeStateStatus)
-            echo "merge state: $state"
-            [ "$state" = "CLEAN" ] && break
+            state=$(gh pr view "$pr" --repo "$repo" --json state --jq .state)
+            if [ "$state" = "MERGED" ]; then
+              echo "release PR #$pr was merged by another actor/run; nothing left to do"
+              { echo "## Release PR already merged"; echo "PR #$pr was merged concurrently; skipping merge/dispatch."; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [ "$state" != "OPEN" ]; then
+              echo "::notice::release PR #$pr became $state before merge; exiting without merging"
+              { echo "## Release PR $state"; echo "PR #$pr is $state (closed without merge); not merging."; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            mstate=$(gh pr view "$pr" --repo "$repo" --json mergeStateStatus --jq .mergeStateStatus)
+            echo "merge state: $mstate"
+            [ "$mstate" = "CLEAN" ] && break
             sleep 20
           done
-          gh pr merge "$pr" --repo "$repo" --squash --delete-branch
+
+          state=$(gh pr view "$pr" --repo "$repo" --json state --jq .state)
+          if [ "$state" != "OPEN" ]; then
+            echo "release PR #$pr is $state; exiting without merging"
+            exit 0
+          fi
+          mstate=$(gh pr view "$pr" --repo "$repo" --json mergeStateStatus --jq .mergeStateStatus)
+          if [ "$mstate" != "CLEAN" ]; then
+            echo "::error::release PR #$pr did not reach a mergeable state (last: $mstate); refusing to merge blindly"
+            exit 1
+          fi
+          if ! gh pr merge "$pr" --repo "$repo" --squash --delete-branch; then
+            if [ "$(gh pr view "$pr" --repo "$repo" --json state --jq .state)" = "MERGED" ]; then
+              echo "release PR #$pr was merged concurrently; continuing"
+            else
+              echo "::error::failed to merge release PR #$pr"
+              exit 1
+            fi
+          fi
 
           if [ "$HAS_RELEASE_PLEASE_TOKEN" = "true" ]; then
             echo "RELEASE_PLEASE_TOKEN set: the merge push already triggers release-please; not dispatching"
