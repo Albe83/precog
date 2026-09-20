@@ -1,0 +1,321 @@
+name: release-smoke
+
+# Black-box verification of PUBLISHED v1 artifacts.
+#
+# Nothing here is built from the checkout: the workflow consumes PyPI, GHCR
+# images and the published Helm OCI chart. Repository files are used only as
+# test orchestration.
+#
+# The Python scenario requires #199 (the `precog-schemas`/`precog-client` pair
+# must exist on PyPI). Until then it is expected to fail at
+# `pip install precog-client==<version>`, which is the signal that #199 is
+# still pending.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: Application release version (e.g. 0.21.1)
+        required: true
+        type: string
+      python_version:
+        description: Published Python package version (e.g. 0.1.0)
+        required: true
+        type: string
+      app_tag:
+        description: Application release tag (default v<app_version>)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  python-sdk:
+    name: python precog-client==${{ inputs.python_version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the published pair in a clean environment
+        run: |
+          set -euo pipefail
+          python -m venv .smoke
+          .smoke/bin/pip install --upgrade pip
+          .smoke/bin/pip install "precog-client==${{ inputs.python_version }}"
+          .smoke/bin/python - <<'PY'
+          import pathlib
+          import precog_client
+          import precog_schemas
+
+          for module in (precog_client, precog_schemas):
+              path = pathlib.Path(module.__file__).resolve()
+              assert "site-packages" in path.parts, f"not installed from the index: {path}"
+              print(module.__name__, path)
+          PY
+
+      - name: Public imports, canonical request and CLI
+        run: |
+          set -euo pipefail
+          .smoke/bin/python - <<'PY'
+          from precog_client import AsyncPrecogClient, PrecogClient
+          from precog_schemas import ForecastRequest
+
+          request = ForecastRequest(
+              horizon=3,
+              targets=[{"id": "s", "values": [1.0, 2.0, 3.0, 4.0]}],
+              quantiles=[0.1, 0.9],
+          )
+          assert request.horizon == 3
+          assert PrecogClient and AsyncPrecogClient
+          print(request.model_dump_json())
+          PY
+          .smoke/bin/precog --help
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Python SDK scenario"
+            echo "- precog-client version: \`${{ inputs.python_version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  api-image:
+    name: published API image (fake engine)
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Resolve the published image digest
+        id: image
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.app_tag }}"; [ -n "$tag" ] || tag="v${{ inputs.app_version }}"
+          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ref="ghcr.io/${owner}/precog-api:${tag}"
+          docker pull "$ref"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$ref")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Run the published digest with the fake engine
+        run: |
+          set -euo pipefail
+          docker run -d --name precog-api -e PRECOG_ENGINE=fake -p 18000:8000 \
+            "${{ steps.image.outputs.digest }}"
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18000/readyz >/dev/null 2>&1; then ready=true; break; fi
+            sleep 2
+          done
+          test "$ready" = "true"
+          curl -fsS http://127.0.0.1:18000/readyz
+          curl -fsS http://127.0.0.1:18000/v1/capabilities > caps.json
+          curl -fsS -X POST http://127.0.0.1:18000/v1/forecast \
+            -H 'content-type: application/json' \
+            -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}' \
+            > forecast.json
+          python3 - <<'PY'
+          import json
+
+          caps = json.load(open("caps.json"))
+          assert caps["engine"] == "fake", caps
+          assert "limits" in caps and "quantile_levels" in caps, caps
+
+          result = json.load(open("forecast.json"))
+          assert "results" not in result and "mode" not in result, result
+          target = result["targets"][0]
+          assert len(target["forecast"]) == 3, target
+          assert {q["level"] for q in target["quantiles"]} == {0.1, 0.9}, target
+          print("canonical REST forecast OK:", target["forecast"])
+          PY
+
+      - name: API logs on failure
+        if: failure()
+        run: docker logs precog-api || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Published API image"
+            echo "- tag: \`${{ steps.image.outputs.tag }}\`"
+            echo "- digest: \`${{ steps.image.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  mcp-image:
+    name: published MCP image against published API
+    runs-on: ubuntu-latest
+    outputs:
+      api_digest: ${{ steps.images.outputs.api_digest }}
+      mcp_digest: ${{ steps.images.outputs.mcp_digest }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve the published image digests
+        id: images
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.app_tag }}"; [ -n "$tag" ] || tag="v${{ inputs.app_version }}"
+          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          for name in precog-api precog-mcp; do
+            ref="ghcr.io/${owner}/${name}:${tag}"
+            docker pull "$ref"
+            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$ref")"
+            echo "${name}_digest=$digest" >> "$GITHUB_OUTPUT"
+          done
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Start the published API and MCP images
+        run: |
+          set -euo pipefail
+          docker network create precog-smoke
+          docker run -d --name precog-api --network precog-smoke -e PRECOG_ENGINE=fake \
+            "${{ steps.images.outputs.api_digest }}"
+          docker run -d --name precog-mcp --network precog-smoke -p 18765:8765 \
+            -e PRECOG_API_URL=http://precog-api:8000 \
+            -e PRECOG_MCP_TRANSPORT=http \
+            -e PRECOG_MCP_PORT=8765 \
+            "${{ steps.images.outputs.mcp_digest }}"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18765/metrics >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:18765/metrics >/dev/null
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generic MCP client smoke (tools, resource, forecast)
+        run: |
+          set -euo pipefail
+          python -m venv .mcpclient
+          .mcpclient/bin/pip install "mcp>=2.2"
+          .mcpclient/bin/python deploy/smoke/mcp_smoke.py --url http://127.0.0.1:18765/mcp
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs precog-api || true
+          docker logs precog-mcp || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Published MCP image"
+            echo "- API digest: \`${{ steps.images.outputs.api_digest }}\`"
+            echo "- MCP digest: \`${{ steps.images.outputs.mcp_digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  helm-chart:
+    name: published Helm OCI chart on kind
+    runs-on: ubuntu-latest
+    outputs:
+      chart_version: ${{ steps.chart.outputs.chart_version }}
+    steps:
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: precog-smoke
+
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.16.4
+
+      - name: Install the published chart with the fake engine
+        id: chart
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.app_tag }}"; [ -n "$tag" ] || tag="v${{ inputs.app_version }}"
+          version="${{ inputs.app_version }}"
+          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "chart_version=$version" >> "$GITHUB_OUTPUT"
+          kubectl create namespace precog
+          helm install precog "oci://ghcr.io/${owner}/precog-charts/precog" \
+            --version "$version" \
+            --namespace precog \
+            --set "image.repository=ghcr.io/${owner}/precog-api" \
+            --set "image.tag=$tag" \
+            --set "mcp.enabled=true" \
+            --set "mcp.image.repository=ghcr.io/${owner}/precog-mcp" \
+            --set "mcp.image.tag=$tag" \
+            --set "mcp.service.enabled=true" \
+            --set "mcp.allowedHosts=*" \
+            --set config.engine=fake \
+            --wait --timeout 5m
+
+      - name: Canonical forecast through the released chart
+        run: |
+          set -euo pipefail
+          kubectl -n precog port-forward svc/precog 18080:80 >/dev/null 2>&1 &
+          forward=$!
+          trap 'kill "$forward" 2>/dev/null || true' EXIT
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/readyz >/dev/null 2>&1; then ready=true; break; fi
+            sleep 2
+          done
+          test "$ready" = "true"
+          curl -fsS http://127.0.0.1:18080/v1/capabilities > caps.json
+          curl -fsS -X POST http://127.0.0.1:18080/v1/forecast \
+            -H 'content-type: application/json' \
+            -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}' \
+            > forecast.json
+          python3 - <<'PY'
+          import json
+
+          caps = json.load(open("caps.json"))
+          assert caps["engine"] == "fake", caps
+          result = json.load(open("forecast.json"))
+          assert "results" not in result and "mode" not in result, result
+          assert len(result["targets"][0]["forecast"]) == 3, result
+          print("chart REST forecast OK")
+          PY
+
+      - name: Helm test
+        run: helm test precog -n precog --timeout 2m
+
+      - name: Cluster state on failure
+        if: failure()
+        run: |
+          kubectl -n precog get pods
+          kubectl -n precog describe pods || true
+          kubectl -n precog logs -l app.kubernetes.io/name=precog --all-containers --tail=100 || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Published Helm chart"
+            echo "- app version: \`${{ inputs.app_version }}\`"
+            echo "- app tag: \`${{ steps.chart.outputs.tag }}\`"
+            echo "- chart version: \`${{ steps.chart.outputs.chart_version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: smoke summary
+    runs-on: ubuntu-latest
+    needs: [python-sdk, api-image, mcp-image, helm-chart]
+    if: always()
+    steps:
+      - name: Report versions and digests under test
+        run: |
+          {
+            echo "## External artifact smoke"
+            echo
+            echo "| Artifact | Version / digest | Result |"
+            echo "| --- | --- | --- |"
+            echo "| Python SDK | precog-client==${{ inputs.python_version }} | ${{ needs.python-sdk.result }} |"
+            echo "| API image | ${{ needs.api-image.outputs.digest }} | ${{ needs.api-image.result }} |"
+            echo "| MCP image | ${{ needs.mcp-image.outputs.mcp_digest }} | ${{ needs.mcp-image.result }} |"
+            echo "| Helm chart | ${{ needs.helm-chart.outputs.chart_version }} | ${{ needs.helm-chart.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            echo "::error::at least one external-artifact scenario failed"
+            exit 1
+          fi

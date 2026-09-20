@@ -135,11 +135,17 @@ you want the weights to persist.
 
 ## In-cluster smoke test
 
-After loading the image into the cluster, verify the chart end-to-end:
+Verify a released chart end-to-end. The script installs the **published** OCI
+chart (not the source tree) with the fake engine, checks `/readyz`, a canonical
+forecast and `helm test`:
 
 ```bash
-CLEANUP=false deploy/smoke-test.sh      # installs, checks /readyz and a forecast
+APP_VERSION=0.21.1 CLEANUP=false deploy/smoke-test.sh
 ```
+
+The full black-box release verification (published Python packages, API/MCP
+images by digest and the published chart on a kind cluster) is the
+`release-smoke` workflow.
 
 ## Multi-replica: who downloads the model
 

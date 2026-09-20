@@ -1,51 +1,70 @@
 #!/usr/bin/env bash
-# In-cluster smoke test for the Precog chart.
+# In-cluster smoke test for a PUBLISHED Precog Helm chart.
 #
-# Assumes the image is already built and loaded into the cluster, e.g.:
-#   podman build --format docker -t precog-api:local .
-#   podman save precog-api:local | sudo k3s ctr images import -   # k3s
-#   kind load docker-image precog-api:local                       # kind
+# Installs the chart from the published OCI registry (never from this source
+# tree) with the fake engine and verifies the canonical execution contract.
 #
 # Usage:
-#   KUBECONFIG=... deploy/smoke-test.sh
-#   CLEANUP=false KUBECONFIG=... deploy/smoke-test.sh
+#   APP_VERSION=0.21.1 deploy/smoke-test.sh
+#   APP_VERSION=0.21.1 CHART_VERSION=0.21.1 CLEANUP=false deploy/smoke-test.sh
 set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-precog-smoke}"
 RELEASE="${RELEASE:-precog}"
-IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-localhost/precog-api}"
-IMAGE_TAG="${IMAGE_TAG:-local}"
+APP_VERSION="${APP_VERSION:?set APP_VERSION to the released application version, e.g. 0.21.1}"
+TAG="${TAG:-v$APP_VERSION}"
+CHART_VERSION="${CHART_VERSION:-$APP_VERSION}"
+CHART="${CHART:-oci://ghcr.io/albe83/precog-charts/precog}"
+API_REPOSITORY="${API_REPOSITORY:-ghcr.io/albe83/precog-api}"
+MCP_REPOSITORY="${MCP_REPOSITORY:-ghcr.io/albe83/precog-mcp}"
 CLEANUP="${CLEANUP:-true}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo ">> installing release '$RELEASE' in namespace '$NAMESPACE'"
-helm upgrade --install "$RELEASE" "$ROOT/deploy/helm/precog" \
+echo ">> installing published chart $CHART --version $CHART_VERSION (images $TAG)"
+helm upgrade --install "$RELEASE" "$CHART" \
+  --version "$CHART_VERSION" \
   --namespace "$NAMESPACE" --create-namespace \
-  --set "image.repository=$IMAGE_REPOSITORY" \
-  --set "image.tag=$IMAGE_TAG" \
-  --set image.pullPolicy=Never \
+  --set "image.repository=$API_REPOSITORY" \
+  --set "image.tag=$TAG" \
+  --set "mcp.enabled=true" \
+  --set "mcp.image.repository=$MCP_REPOSITORY" \
+  --set "mcp.image.tag=$TAG" \
+  --set "mcp.service.enabled=true" \
+  --set "mcp.allowedHosts=*" \
+  --set config.engine=fake \
   --wait --timeout 5m
 
 POD="$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=precog -o jsonpath='{.items[0].metadata.name}')"
 echo ">> pod: $POD"
 
-echo ">> forecast through the API"
-kubectl -n "$NAMESPACE" exec "$POD" -- python -c "
+echo ">> canonical forecast through the API"
+kubectl -n "$NAMESPACE" exec "$POD" -c api -- python -c '
 import json, urllib.request
-payload = {'mode': 'univariate', 'horizon': 3,
-           'series': [{'id': 's', 'target': [100, 102, 101, 105, 107, 106, 108, 109, 112, 111]}]}
-req = urllib.request.Request('http://127.0.0.1:8000/v1/forecast',
-                             data=json.dumps(payload).encode(),
-                             headers={'content-type': 'application/json'})
+payload = {
+    "horizon": 3,
+    "targets": [{"id": "s", "values": [100, 102, 101, 105, 107, 106, 108, 109, 112, 111]}],
+    "quantiles": [0.1, 0.9],
+}
+req = urllib.request.Request(
+    "http://127.0.0.1:8000/v1/forecast",
+    data=json.dumps(payload).encode(),
+    headers={"content-type": "application/json"},
+)
 result = json.load(urllib.request.urlopen(req))
-print('model:', result['model'], '| forecast:', [round(v, 2) for v in result['results'][0]['forecast']])
-"
+assert "results" not in result and "mode" not in result, result
+target = result["targets"][0]
+assert len(target["forecast"]) == 3, target
+assert {q["level"] for q in target["quantiles"]} == {0.1, 0.9}, target
+print("model:", result["model"], "| forecast:", [round(v, 2) for v in target["forecast"]])
+'
 
 echo ">> /readyz"
-kubectl -n "$NAMESPACE" exec "$POD" -- python -c "
+kubectl -n "$NAMESPACE" exec "$POD" -c api -- python -c '
 import urllib.request
-print('status', urllib.request.urlopen('http://127.0.0.1:8000/readyz').status)
-"
+print("status", urllib.request.urlopen("http://127.0.0.1:8000/readyz").status)
+'
+
+echo ">> helm test"
+helm test "$RELEASE" -n "$NAMESPACE" --timeout 2m
 
 if [ "$CLEANUP" = "true" ]; then
   echo ">> uninstalling"
