@@ -1,12 +1,33 @@
 name: release-please
 
+# Runs release-please on main: it opens/updates the release PR and, once the
+# release PR has been merged (and the manifest/tag state is consistent),
+# creates the GitHub release and its tag.
+#
+# It is also explicitly dispatchable so that a release merged with the fallback
+# `GITHUB_TOKEN` (which does not trigger `push` workflows) can be finalized
+# deterministically: `autorelease` dispatches this workflow after such a merge.
+# Re-running it is idempotent (an existing release is not recreated).
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      finalize:
+        description: Finalize an already-merged release if needed (idempotent)
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
   pull-requests: write
+
+# Serialize runs so a dispatch cannot race the push-triggered run.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
 
 jobs:
   release-please:

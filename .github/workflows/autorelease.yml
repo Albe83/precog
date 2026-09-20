@@ -1,13 +1,21 @@
 name: autorelease
 
-# Automates the release PR: approves the pending workflow runs that GitHub
-# holds for the bot-created release PR, waits for the required checks and
+# Automates patch/minor release PRs: approves the pending workflow runs that
+# GitHub holds for the bot-created release PR, waits for the required checks and
 # merges it (squash). No manual approval needed.
 #
-# Optionally provide a `RELEASE_PLEASE_TOKEN` secret (fine-grained PAT with
-# contents/pull-requests/actions write) so release-please PRs run their checks
-# without needing approval at all; otherwise the default token is used and this
-# workflow approves the runs itself.
+# Two things this workflow deliberately does NOT do:
+#
+#   1. It never auto-merges a release PR that crosses a major-version boundary
+#      (previous manifest major != release PR target major). The PR is left open
+#      for explicit review. To finalize a major release, review and merge the
+#      release PR manually; see the "Major releases" section of CONTRIBUTING.md.
+#   2. It does not rely on an unrelated later push to finalize the release. When
+#      the merge uses the fallback `GITHUB_TOKEN` (no `RELEASE_PLEASE_TOKEN`
+#      secret), the merge push does not trigger `push` workflows, so this
+#      workflow explicitly dispatches `release-please.yml` on main. With a real
+#      PAT the merge push already triggers `release-please`, so no dispatch is
+#      made (no duplicate/racing finalization).
 
 on:
   workflow_run:
@@ -28,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      HAS_RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN != '' }}
     steps:
       - name: Approve pending checks and merge the release PR
         run: |
@@ -38,6 +47,30 @@ jobs:
           if [ -z "$pr" ]; then echo "no release PR open"; exit 0; fi
           branch=$(gh pr view "$pr" --repo "$repo" --json headRefName --jq .headRefName)
           echo "release PR #$pr on $branch"
+
+          read_manifest_version() {
+            gh api "repos/$repo/contents/.release-please-manifest.json?ref=$1" --jq .content \
+              | base64 -d \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["."])'
+          }
+
+          current="$(read_manifest_version main)"
+          target="$(read_manifest_version "$branch")"
+          current_major="${current%%.*}"
+          target_major="${target%%.*}"
+          echo "manifest on main: $current; release PR target: $target"
+
+          if [ "$target_major" != "$current_major" ]; then
+            echo "::notice::release PR #$pr crosses a major boundary ($current -> $target); leaving it open for manual review and merge"
+            {
+              echo "## Major release requires manual merge"
+              echo
+              echo "Release PR #$pr would move \`$current\` -> \`$target\` (major boundary)."
+              echo "Autorelease will not merge it. Review the version/changelog and merge it manually;"
+              echo "then finalize with \`gh workflow run release-please.yml --ref main\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           for id in $(gh run list --repo "$repo" --branch "$branch" --status action_required \
                        --limit 50 --json databaseId --jq '.[].databaseId'); do
@@ -52,3 +85,10 @@ jobs:
             sleep 20
           done
           gh pr merge "$pr" --repo "$repo" --squash --delete-branch
+
+          if [ "$HAS_RELEASE_PLEASE_TOKEN" = "true" ]; then
+            echo "RELEASE_PLEASE_TOKEN set: the merge push already triggers release-please; not dispatching"
+          else
+            echo "fallback GITHUB_TOKEN: dispatching release-please finalization on main"
+            gh workflow run release-please.yml --repo "$repo" --ref main
+          fi
