@@ -3,52 +3,84 @@ name: publish-chart
 # Packages the Helm chart and publishes it so it can be pinned by version:
 #   - OCI: oci://ghcr.io/<owner>/precog-charts/precog --version <x.y.z>
 #   - GitHub release asset: precog-<x.y.z>.tgz
+#
+# The archive is always built from the concrete release tag supplied as
+# `inputs.tag`, never from the workflow event SHA. Manual dispatch must name an
+# existing release tag.
 
 on:
   workflow_call:
     inputs:
       tag:
-        description: Release tag to package (e.g. v0.5.0). Chart version is tag minus "v".
-        required: false
+        description: Release tag to package (e.g. v1.0.0). Chart version is tag minus "v".
+        required: true
         type: string
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to package (optional)
-        required: false
+        description: Existing release tag to package (e.g. v1.0.0)
+        required: true
         type: string
 
 permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: publish-chart-${{ inputs.tag }}
+  cancel-in-progress: false
+
 jobs:
   chart:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Resolve and validate the release tag
+        id: ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            echo "::error::a concrete release tag is required; manual dispatch republishes an existing release, it does not package unreleased main"
+            exit 1
+          fi
+          if ! sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag}" --jq .sha 2>/dev/null)"; then
+            echo "::error::release tag '$tag' does not exist in ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          version="${tag#v}"
+          if [ -z "$version" ] || [ "$version" = "$tag" ]; then
+            echo "::error::release tag '$tag' must look like v<semver> (e.g. v1.0.0)"
+            exit 1
+          fi
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### publish-chart"
+            echo "- release tag: \`$tag\`"
+            echo "- release commit: \`$sha\`"
+            echo "- chart version: \`$version\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout the release tag commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.ref.outputs.sha }}
+          fetch-depth: 0
 
       - uses: azure/setup-helm@v5
         with:
           version: v3.16.4
 
-      - name: Compute owner and version
-        id: vars
-        run: |
-          set -euo pipefail
-          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
-          tag="${{ inputs.tag }}"
-          version="${tag#v}"
-          if [ -z "$version" ]; then version="0.0.0-dev"; fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Package chart
+      - name: Package chart from the release tag
         run: |
           set -euo pipefail
           mkdir -p dist
           helm package deploy/helm/precog \
-            --version "${{ steps.vars.outputs.version }}" \
-            --app-version "${{ steps.vars.outputs.version }}" \
+            --version "${{ steps.ref.outputs.version }}" \
+            --app-version "${{ steps.ref.outputs.version }}" \
             -d dist
           ls -l dist
 
@@ -58,7 +90,7 @@ jobs:
             helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Push chart to GHCR (OCI)
-        run: helm push dist/precog-*.tgz oci://ghcr.io/${{ steps.vars.outputs.owner }}/precog-charts
+        run: helm push dist/precog-*.tgz oci://ghcr.io/${{ steps.ref.outputs.owner }}/precog-charts
 
       - name: Attach chart to the GitHub release
         if: inputs.tag != ''

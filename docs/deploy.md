@@ -26,6 +26,13 @@ The Helm chart is published per release as an OCI chart
 `.tgz` asset on the GitHub release. See
 [`deploy/helm/precog/README.md`](../deploy/helm/precog/README.md).
 
+Release artifacts are always built from the released source tag
+(`v<version>`), never from an arbitrary later `main` commit; the image OCI
+revision and the `sha-<commit>` tag identify that release commit. `latest` is
+moved only by stable (non-prerelease) release tags. To republish an existing
+release, dispatch `publish-images` / `publish-chart` manually with that concrete
+tag; there is no path that publishes unreleased `main` as `latest`.
+
 The CI verifies that no weights are embedded before pushing. **Never** publish
 an image built with `PRECOG_BAKE_WEIGHTS=true`: that variant embeds the
 non-commercial weights and is intended only for local, air-gapped builds.
