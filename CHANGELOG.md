@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.20.0](https://github.com/Albe83/precog/compare/v0.19.0...v0.20.0) (2026-09-20)
+
+
+### Features
+
+* **sdk:** add async execution client and migrate MCP transport ([#190](https://github.com/Albe83/precog/issues/190)) ([bab685a](https://github.com/Albe83/precog/commit/bab685ab33f0ce5b9793186cc91b23fb7a1525c9))
+
 ## [0.19.0](https://github.com/Albe83/precog/compare/v0.18.0...v0.19.0) (2026-09-20)
 
 
