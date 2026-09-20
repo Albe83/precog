@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 
-# Precog MCP server image. Contains no model weights: it talks to the API over
-# HTTP. Build locally; nothing is published.
+# Precog MCP server image. Contains no model weights and no TimesFM runtime:
+# it talks to the API over HTTP. Weight-free images are published to GHCR as
+# ghcr.io/<owner>/precog-mcp on release.
 #
 #   podman build --format docker -f Dockerfile.mcp -t precog-mcp:local .
 #   # behind TLS inspection:
@@ -32,10 +33,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /src
 COPY packages/schemas ./packages/schemas
+COPY packages/sdk-python ./packages/sdk-python
 COPY apps/mcp ./apps/mcp
 
+# Install workspace packages from source in dependency order so precog-mcp
+# resolves precog-client and precog-schemas without contacting PyPI.
 RUN pip install --upgrade pip \
-    && pip install ./packages/schemas "./apps/mcp[otel]"
+    && pip install ./packages/schemas ./packages/sdk-python "./apps/mcp[otel]"
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
