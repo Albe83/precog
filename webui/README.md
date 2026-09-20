@@ -1,5 +1,13 @@
 # Precog Web UI
 
+> **Experimental — not part of the supported v1 product surface.**
+>
+> The Web UI is retained in-tree as a demo and kept buildable, but it is not a
+> supported Precog interface and must not drive the REST/MCP/Python
+> architecture. The supported v1 surfaces are the REST Execution API, the MCP
+> semantic interface and the Python SDK (`precog-client`). No feature work is
+> planned here.
+
 Minimal browser UI for the Precog REST API: paste a target series, choose a
 horizon, and see the median forecast with the 10–90% quantile band. It consumes
 the TypeScript SDK (`@precog/sdk`) directly from `packages/sdk-ts/src`.

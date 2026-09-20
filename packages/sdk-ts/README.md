@@ -1,5 +1,13 @@
 # @precog/sdk (TypeScript)
 
+> **Experimental — not part of the supported v1 product surface.**
+>
+> This package is retained in-tree and kept buildable, but it is not a supported
+> Precog interface and must not drive the REST/MCP/Python architecture. The
+> supported v1 surfaces are the REST Execution API, the MCP semantic interface
+> and the Python SDK (`precog-client`). Use the Python client for supported
+> execution. No feature work is planned here.
+
 Typed TypeScript client for the Precog REST API. Works in Node 18+ and the
 browser (uses `fetch`).
 
@@ -21,7 +29,7 @@ import { PrecogClient } from "@precog/sdk";
 const client = new PrecogClient({ baseUrl: "http://localhost:8000" });
 
 const caps = await client.capabilities();
-console.log(caps.max_horizon, caps.modes);
+console.log(caps.engine, caps.limits.max_horizon, caps.limits.max_context);
 
 const response = await client.forecast({
   horizon: 4,
