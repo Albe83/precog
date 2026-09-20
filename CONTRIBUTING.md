@@ -62,6 +62,28 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg
   cross a major version is not auto-merged and must be reviewed and merged
   deliberately.
 
+### Major releases
+
+`autorelease` compares the manifest major on `main` with the release PR target
+major and refuses to merge across a boundary (for example `0.x` → `1.0.0`).
+
+To cut a major release (e.g. v1.0.0 for #201):
+
+1. review the release PR carefully: version, `CHANGELOG.md`, and the artifact
+   configuration (`release-please-config.json`, workflows);
+2. merge it manually (squash) once checks are green;
+3. finalize explicitly, since a manual/fallback-`GITHUB_TOKEN` merge does not
+   trigger the `push` workflow that creates the GitHub release:
+
+   ```bash
+   gh workflow run release-please.yml --ref main
+   ```
+
+   This creates the tag/GitHub release and publishes the images and Helm chart.
+   It is idempotent: re-running it on an already-released version does nothing.
+   With a `RELEASE_PLEASE_TOKEN` secret configured, the merge push finalizes
+   automatically and step 3 is not needed.
+
 ## Branch protection
 
 `main` is protected (enforced for admins too):
