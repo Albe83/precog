@@ -1,0 +1,176 @@
+name: application-packages
+
+# Builds and clean-installs the application Python distributions
+# (`precog-api`, `precog-mcp`) from wheels only, with the fake engine.
+#
+# This is the application-version counterpart of the SDK `python-packages`
+# workflow. It never downloads TimesFM weights; the real-engine integration
+# suite remains the model/runtime correctness gate.
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "apps/mcp/**"
+      - "packages/schemas/**"
+      - "packages/sdk-python/**"
+      - "tools/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/application-packages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "apps/mcp/**"
+      - "packages/schemas/**"
+      - "packages/sdk-python/**"
+      - "tools/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/application-packages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Application version contract
+        run: python tools/release_metadata.py
+
+      - name: Build SDK and application distributions
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          uv build packages/schemas --out-dir dist/schemas
+          uv build packages/sdk-python --out-dir dist/client
+          uv build apps/api --out-dir dist/api
+          uv build apps/mcp --out-dir dist/mcp
+          find dist -type f | sort
+
+      - name: Record package versions
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          projects = {
+              "precog-schemas": "packages/schemas/pyproject.toml",
+              "precog-client": "packages/sdk-python/pyproject.toml",
+              "precog-api": "apps/api/pyproject.toml",
+              "precog-mcp": "apps/mcp/pyproject.toml",
+          }
+          for name, path in projects.items():
+              with Path(path).open("rb") as handle:
+                  version = tomllib.load(handle)["project"]["version"]
+              print(f"{name} {version}")
+          PY
+
+      - name: Verify archives are weight/cache/repository free
+        run: python tools/verify_dist_archives.py dist
+
+      - name: Clean wheel-only install, entry points and version metadata
+        run: |
+          set -euo pipefail
+          python -m venv .app-smoke
+          .app-smoke/bin/pip install --upgrade pip
+          .app-smoke/bin/pip install \
+            dist/schemas/*.whl dist/client/*.whl dist/api/*.whl dist/mcp/*.whl
+          for command in precog-api precog-mcp precog precog-download-model; do
+            test -x ".app-smoke/bin/$command" || { echo "missing entry point: $command"; exit 1; }
+          done
+          .app-smoke/bin/precog --help >/dev/null
+          .app-smoke/bin/python - <<'PY'
+          import importlib.metadata as metadata
+          import pathlib
+
+          import precog_api
+          import precog_client
+          import precog_mcp
+          import precog_schemas
+
+          for module in (precog_api, precog_client, precog_mcp, precog_schemas):
+              path = pathlib.Path(module.__file__).resolve()
+              assert "site-packages" in path.parts, f"imported from source tree: {path}"
+              print(module.__name__, metadata.version(module.__name__.replace("_", "-")), path)
+
+          requires = metadata.requires("precog-api") or []
+          timesfm = [requirement for requirement in requires if "timesfm" in requirement.lower()]
+          assert timesfm, requires
+          normalized = [requirement.replace("'", "").replace('"', "") for requirement in timesfm]
+          assert all("extra == engine" in requirement for requirement in normalized), timesfm
+          print("engine extra metadata OK; base install does not require timesfm")
+          PY
+
+      - name: Installed API serves the canonical contract (fake engine)
+        run: |
+          set -euo pipefail
+          PRECOG_ENGINE=fake .app-smoke/bin/precog-api > api.log 2>&1 &
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null 2>&1; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then cat api.log; exit 1; fi
+          curl -fsS http://127.0.0.1:8000/v1/capabilities > caps.json
+          curl -fsS -X POST http://127.0.0.1:8000/v1/forecast \
+            -H 'content-type: application/json' \
+            -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}' \
+            > forecast.json
+          python - <<'PY'
+          import json
+
+          caps = json.load(open("caps.json"))
+          assert caps["engine"] == "fake", caps
+          result = json.load(open("forecast.json"))
+          assert "results" not in result and "mode" not in result, result
+          target = result["targets"][0]
+          assert len(target["forecast"]) == 3, target
+          assert {q["level"] for q in target["quantiles"]} == {0.1, 0.9}, target
+          print("installed API canonical forecast OK")
+          PY
+
+      - name: Installed MCP exposes the semantic surface against the installed API
+        run: |
+          set -euo pipefail
+          PRECOG_API_URL=http://127.0.0.1:8000 \
+          PRECOG_MCP_TRANSPORT=http \
+          PRECOG_MCP_PORT=8765 \
+            .app-smoke/bin/precog-mcp > mcp.log 2>&1 &
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8765/metrics >/dev/null 2>&1; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then cat mcp.log; exit 1; fi
+          .app-smoke/bin/python deploy/smoke/mcp_smoke.py --url http://127.0.0.1:8765/mcp
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat api.log 2>/dev/null || true
+          cat mcp.log 2>/dev/null || true
+
+      - name: Upload application distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: precog-api-dist
+          path: dist/api/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precog-mcp-dist
+          path: dist/mcp/*
+          if-no-files-found: error
