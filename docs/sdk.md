@@ -1,19 +1,49 @@
 # Python SDK
 
 `packages/sdk-python` provides typed synchronous and asynchronous clients for the
-Precog execution API. They share the `precog_schemas` models and the typed error
-classes.
+Precog Execution API. Both clients use the canonical `precog_schemas` wire
+models and the same typed error hierarchy.
 
-## Install (from this repository)
+The Python distribution is intentionally an **execution-plane SDK**:
+
+- it calls `POST /v1/forecast` and `GET /v1/capabilities`;
+- it does not expose the MCP semantic contract;
+- it does not expose TimesFM-specific evaluator controls;
+- backend/runtime details remain behind the execution API and Engine boundary.
+
+## Package boundary
+
+The distributable Python surface is split into two packages:
+
+- `precog-client`: sync/async HTTP clients, retry/error handling and CLI;
+- `precog-schemas`: canonical Pydantic request/response and capability DTOs.
+
+The schema package is a real distribution dependency of the client rather than
+workspace-only implementation detail. The two packages use one synchronized
+Python-package version and are built/published together.
+
+This package version is independent from the Precog application/Helm release
+version. Application releases therefore do not implicitly publish Python
+packages.
+
+## Install
+
+After a manual Python-package release:
 
 ```bash
-uv sync --all-packages --system-certs      # installs precog-client into the workspace venv
-# or, standalone:
-uv pip install ./packages/sdk-python
+pip install precog-client
 ```
 
-Publishing to a package index is intentionally not wired up yet (source-only
-release policy, see `THIRD_PARTY_NOTICES.md`).
+From this repository:
+
+```bash
+uv sync --all-packages --system-certs
+# or build/install the local packages explicitly:
+uv pip install ./packages/schemas ./packages/sdk-python
+```
+
+ADR 0003 permits publication because both Python packages contain MIT-licensed
+code only and no TimesFM model weights.
 
 ## Quickstart
 
@@ -62,8 +92,9 @@ You can also send an already-built `ForecastRequest` with
 
 ## Async client
 
-`AsyncPrecogClient` mirrors `PrecogClient` (`forecast`, `forecast_request`,
-`capabilities`) with the same request models, retry/backoff and typed errors.
+`AsyncPrecogClient` mirrors `PrecogClient` (`forecast`,
+`forecast_request`, `capabilities`) with the same request models,
+retry/backoff behavior and typed errors.
 
 ```python
 import asyncio
@@ -119,19 +150,41 @@ All exceptions derive from `PrecogError`:
 | `PrecogValidationError` | payload rejected locally before the request |
 | `PrecogConnectionError` | API unreachable |
 | `PrecogTimeoutError` | request timed out |
-| `PrecogAPIError` | API returned RFC 7807 error (`status_code`, `title`, `detail`) |
+| `PrecogAPIError` | API returned an HTTP error (`status_code`, `title`, `detail`) |
 
-## Contract test
+## Package validation and publication
 
-The SDK is validated against a running API:
+`.github/workflows/python-packages.yml` validates the distributable boundary on
+pull requests and relevant pushes:
+
+1. `precog-client` and `precog-schemas` must have the same package version;
+2. wheel and sdist artifacts are built for both packages;
+3. archive contents are checked for model/cache payloads;
+4. the built wheels are installed into a clean virtual environment and imported.
+
+Publication is deliberately separate from normal application releases. It is
+available only through an explicit `workflow_dispatch` run on `main` with
+`publish=true`, using PyPI Trusted Publishing and the protected `pypi`
+environment. The workflow publishes `precog-schemas` first and
+`precog-client` second.
+
+Before the first publication, configure a PyPI Trusted Publisher (or pending
+publisher) for both projects against this repository, the
+`python-packages.yml` workflow and the `pypi` environment.
+
+## Real contract test
+
+The real SDK gate boots the Precog ASGI application in-process with the cached
+TimesFM-3 engine and drives it through both sync and async clients. It does not
+require an externally running `PRECOG_API_URL`.
 
 ```bash
-PRECOG_API_URL=http://127.0.0.1:8000 \
-  pytest packages/sdk-python/tests/test_integration.py -m integration
+PRECOG_CACHE_DIR=/path/to/models \
+  uv run pytest -m integration -q packages/sdk-python/tests/test_integration.py
 ```
 
 ## TypeScript SDK
 
 A TypeScript client (`@precog/sdk`) lives in `packages/sdk-ts` (Node 18+ and
-browsers, `fetch`-based) with the same `forecast`/`capabilities` surface; see
-`packages/sdk-ts/README.md`.
+browsers, `fetch`-based) with the same execution `forecast`/`capabilities`
+surface; see `packages/sdk-ts/README.md`.
