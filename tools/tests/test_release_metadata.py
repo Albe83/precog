@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from release_metadata import (  # noqa: E402
     ROOT,
     collect,
+    expected_mismatches,
     read_chart_versions,
     read_package_version,
 )
@@ -86,3 +87,12 @@ def test_read_package_version(tmp_path: Path) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(ROOT_PYPROJECT.format(version="3.4.5"))
     assert read_package_version(pyproject) == "3.4.5"
+
+
+def test_expected_mismatches() -> None:
+    report = collect(ROOT)
+    assert expected_mismatches(report, None) == []
+    assert expected_mismatches(report, report.application) == []
+    assert expected_mismatches(report, "99.0.0") == [
+        f"application version {report.application} != expected release 99.0.0"
+    ]

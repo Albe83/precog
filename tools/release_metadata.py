@@ -9,11 +9,14 @@ The SDK pair (``precog-client`` / ``precog-schemas``) is intentionally on its
 own version train and is not checked here.
 
 CLI: ``python tools/release_metadata.py`` prints the versions and exits non-zero
-if any application artifact has drifted from the root version.
+if any application artifact has drifted from the root version. Pass
+``--expect X.Y.Z`` to also fail unless the application version equals a release
+tag version.
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 import tomllib
@@ -75,20 +78,43 @@ def collect(root: Path = ROOT) -> VersionReport:
     )
 
 
-def main() -> int:
+def expected_mismatches(report: VersionReport, expected: str | None) -> list[str]:
+    """Return problems when the application version does not equal ``expected``."""
+
+    if expected is None or report.application == expected:
+        return []
+    return [f"application version {report.application} != expected release {expected}"]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--expect",
+        metavar="VERSION",
+        help="fail unless the application version equals this release version (e.g. 1.0.0)",
+    )
+    args = parser.parse_args(argv)
+
     report = collect()
     print(f"application version: {report.application}")
     for name, version in report.packages.items():
         print(f"  {name}: {version}")
     print(f"  helm chart: version={report.chart_version} appVersion={report.chart_app_version}")
 
-    if report.mismatches:
-        for name, version in sorted(report.mismatches.items()):
+    drifted = report.mismatches
+    expected = expected_mismatches(report, args.expect)
+
+    if drifted:
+        for name, version in sorted(drifted.items()):
             print(
                 f"::error::{name} version {version} != application version "
                 f"{report.application}; run release-please or fix the metadata",
                 file=sys.stderr,
             )
+    for problem in expected:
+        print(f"::error::{problem}", file=sys.stderr)
+
+    if drifted or expected:
         return 1
     return 0
 
