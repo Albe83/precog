@@ -1,0 +1,159 @@
+name: python-packages
+
+on:
+  pull_request:
+    paths:
+      - "packages/sdk-python/**"
+      - "packages/schemas/**"
+      - "docs/sdk.md"
+      - ".github/workflows/python-packages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/sdk-python/**"
+      - "packages/schemas/**"
+      - "docs/sdk.md"
+      - ".github/workflows/python-packages.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish precog-schemas and precog-client to PyPI"
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Verify package versions move together
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          def version(path: str) -> str:
+              with Path(path).open("rb") as handle:
+                  return tomllib.load(handle)["project"]["version"]
+
+          client = version("packages/sdk-python/pyproject.toml")
+          schemas = version("packages/schemas/pyproject.toml")
+          if client != schemas:
+              raise SystemExit(
+                  f"Python package versions must match: precog-client={client}, precog-schemas={schemas}"
+              )
+          print(f"Python package version: {client}")
+          PY
+
+      - name: Build distributions
+        run: |
+          rm -rf dist
+          uv build packages/schemas --out-dir dist/schemas
+          uv build packages/sdk-python --out-dir dist/client
+
+      - name: Verify artifact contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          forbidden_suffixes = {
+              ".bin",
+              ".ckpt",
+              ".gguf",
+              ".onnx",
+              ".pt",
+              ".pth",
+              ".safetensors",
+          }
+
+          def members(path: Path) -> list[str]:
+              if path.suffix == ".whl":
+                  with zipfile.ZipFile(path) as archive:
+                      return archive.namelist()
+              if path.name.endswith(".tar.gz"):
+                  with tarfile.open(path, "r:gz") as archive:
+                      return archive.getnames()
+              return []
+
+          artifacts = [path for path in Path("dist").rglob("*") if path.is_file()]
+          if not artifacts:
+              raise SystemExit("no Python package artifacts were built")
+
+          for artifact in artifacts:
+              for member in members(artifact):
+                  normalized = member.lower().replace("\\", "/")
+                  if any(normalized.endswith(suffix) for suffix in forbidden_suffixes):
+                      raise SystemExit(f"model artifact found in {artifact}: {member}")
+                  if "/.cache/" in f"/{normalized}/" or "/models/" in f"/{normalized}/":
+                      raise SystemExit(f"cache/model path found in {artifact}: {member}")
+
+          print("Artifact contents contain no model/cache payloads")
+          PY
+
+      - name: Smoke install built wheels
+        run: |
+          uv venv .package-smoke
+          uv pip install --python .package-smoke/bin/python             dist/schemas/*.whl             dist/client/*.whl
+          .package-smoke/bin/python - <<'PY'
+          from precog_client import AsyncPrecogClient, PrecogClient
+          from precog_schemas import ForecastRequest
+
+          request = ForecastRequest(
+              horizon=1,
+              targets=[{"id": "series", "values": [1.0, 2.0, 3.0]}],
+              quantiles=[],
+          )
+          assert request.horizon == 1
+          assert PrecogClient is not None
+          assert AsyncPrecogClient is not None
+          print("Built packages install and import successfully")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precog-schemas-dist
+          path: dist/schemas/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precog-client-dist
+          path: dist/client/*
+          if-no-files-found: error
+
+  publish-schemas:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: precog-schemas-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  publish-client:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main' }}
+    needs: [build, publish-schemas]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: precog-client-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
