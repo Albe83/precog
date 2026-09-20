@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.3.2](https://github.com/Albe83/precog/compare/v1.3.1...v1.3.2) (2026-09-20)
+
+
+### Bug Fixes
+
+* **docs:** make deployment tabs share one diagonal divider ([eae9f5e](https://github.com/Albe83/precog/commit/eae9f5e79cc0e58a82c0cbfcff63022123fb2a6c))
+
 ## [1.3.1](https://github.com/Albe83/precog/compare/v1.3.0...v1.3.1) (2026-09-20)
 
 
