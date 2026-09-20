@@ -10,8 +10,9 @@ name: publish-python-apps
 # it manually.
 #
 # - built from the concrete release tag commit, never from a later main commit;
-# - PyPI Trusted Publishing (OIDC) via the protected `pypi` environment, no
-#   static token;
+# - PyPI Trusted Publishing (OIDC) via protected environments, no static token:
+#   `precog-api` uses `pypi`, `precog-mcp` uses `pypi-mcp` (PyPI requires a
+#   unique (owner, repo, workflow, environment) tuple per project);
 # - only API/MCP here: the independent SDK pair is published by
 #   `python-packages.yml`;
 # - re-running is safe: uploads use `skip-existing`, so a successful API upload
@@ -182,7 +183,10 @@ jobs:
   publish-mcp:
     needs: validate
     runs-on: ubuntu-latest
-    environment: pypi
+    # Distinct environment: PyPI enforces uniqueness of the
+    # (owner, repo, workflow, environment) Trusted Publisher tuple, so the
+    # second package in a workflow needs its own environment.
+    environment: pypi-mcp
     permissions:
       id-token: write
       contents: read

@@ -164,13 +164,22 @@ pull requests and relevant pushes:
 
 Publication is deliberately separate from normal application releases. It is
 available only through an explicit `workflow_dispatch` run on `main` with
-`publish=true`, using PyPI Trusted Publishing and the protected `pypi`
-environment. The workflow publishes `precog-schemas` first and
-`precog-client` second.
+`publish=true`, using PyPI Trusted Publishing (OIDC). The workflow publishes
+`precog-schemas` first and `precog-client` second.
 
-Before the first publication, configure a PyPI Trusted Publisher (or pending
-publisher) for both projects against this repository, the
-`python-packages.yml` workflow and the `pypi` environment.
+Before the first publication, register a PyPI Trusted Publisher (or pending
+publisher) for each project with these exact GitHub identities:
+
+| Project | Workflow | Environment |
+| ------- | -------- | ----------- |
+| `precog-schemas` | `.github/workflows/python-packages.yml` | `pypi` |
+| `precog-client` | `.github/workflows/python-packages.yml` | `pypi-client` |
+
+PyPI enforces uniqueness of the `(owner, repo, workflow, environment)` tuple, so
+the second package in a workflow needs a distinct environment. Create the empty
+GitHub environments `pypi-client` (here) and `pypi-mcp` (for the application
+packages, see `CONTRIBUTING.md`) before registering the pending publishers. No
+static PyPI token is used.
 
 ## Real contract test
 
