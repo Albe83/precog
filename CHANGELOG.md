@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.21.1](https://github.com/Albe83/precog/compare/v0.21.0...v0.21.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **mcp:** build the published MCP image from the official SDK dependency ([#209](https://github.com/Albe83/precog/issues/209)) ([c1cdf31](https://github.com/Albe83/precog/commit/c1cdf31beb10c65c042543c833b33b615c272d76))
+
+
+### Documentation
+
+* **repo:** mark the TypeScript SDK and WebUI as experimental ([#211](https://github.com/Albe83/precog/issues/211)) ([1f235f0](https://github.com/Albe83/precog/commit/1f235f085c96588cb3ef349b400aa75f98e8b51d))
+* **repo:** rewrite top-level and operator docs for the v1 baseline ([#208](https://github.com/Albe83/precog/issues/208)) ([9fde1a0](https://github.com/Albe83/precog/commit/9fde1a039581ef373199755390d4475a57fb4041))
+
 ## [0.21.0](https://github.com/Albe83/precog/compare/v0.20.0...v0.21.0) (2026-09-20)
 
 
