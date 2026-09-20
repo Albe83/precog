@@ -45,18 +45,35 @@ jobs:
             echo "::error::a concrete release tag is required; manual dispatch republishes an existing release, it does not package unreleased main"
             exit 1
           fi
-          if ! sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag}" --jq .sha 2>/dev/null)"; then
-            echo "::error::release tag '$tag' does not exist in ${GITHUB_REPOSITORY}"
+
+          # Must be a v-prefixed SemVer release tag. Reject branches (main),
+          # raw commit SHAs and malformed refs before packaging/publishing.
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?(\+[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$tag' is not a SemVer release tag (expected vMAJOR.MINOR.PATCH[-prerelease][+build]); branches, commit SHAs and arbitrary refs are rejected"
             exit 1
           fi
+
+          # Prove refs/tags/<tag> exists (not merely that the name resolves to a
+          # commit) and resolve it, dereferencing annotated tags.
+          if ! ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" 2>/dev/null)"; then
+            echo "::error::release tag 'refs/tags/$tag' does not exist in ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          obj_type="$(jq -r .object.type <<<"$ref")"
+          obj_sha="$(jq -r .object.sha <<<"$ref")"
+          case "$obj_type" in
+            tag) sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${obj_sha}" --jq .object.sha)" ;;
+            commit) sha="$obj_sha" ;;
+            *) echo "::error::refs/tags/$tag points at unexpected object type '$obj_type'"; exit 1 ;;
+          esac
+
+          # Chart version is the SemVer value without the leading "v".
           version="${tag#v}"
-          if [ -z "$version" ] || [ "$version" = "$tag" ]; then
-            echo "::error::release tag '$tag' must look like v<semver> (e.g. v1.0.0)"
-            exit 1
-          fi
-          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "owner=${GITHUB_REPOSITORY_OWNER,,}"
+            echo "version=$version"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "### publish-chart"
             echo "- release tag: \`$tag\`"

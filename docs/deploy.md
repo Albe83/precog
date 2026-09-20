@@ -21,6 +21,17 @@ docker pull ghcr.io/albe83/precog-api:latest   # downloads weights at runtime
 docker pull ghcr.io/albe83/precog-mcp:latest   # no weights at all
 ```
 
+For reproducible deployments, pin the immutable digest rather than a tag:
+
+```bash
+docker pull ghcr.io/albe83/precog-api@sha256:<digest>
+docker pull ghcr.io/albe83/precog-mcp@sha256:<digest>
+```
+
+The digest is the strongest pin: `latest`, `vX.Y.Z` and `sha-<commit>` are
+moving or human-friendly aliases. Each release's publish run prints the exact
+`ghcr.io/albe83/precog-<api|mcp>@sha256:<digest>` value in its job summary.
+
 The Helm chart is published per release as an OCI chart
 (`oci://ghcr.io/albe83/precog-charts/precog`, pin with `--version`) and as a
 `.tgz` asset on the GitHub release. See
@@ -29,7 +40,9 @@ The Helm chart is published per release as an OCI chart
 Release artifacts are always built from the released source tag
 (`v<version>`), never from an arbitrary later `main` commit; the image OCI
 revision and the `sha-<commit>` tag identify that release commit. `latest` is
-moved only by stable (non-prerelease) release tags. To republish an existing
+moved only by stable (non-prerelease) release tags. The tag must be a real
+SemVer Git tag (`vMAJOR.MINOR.PATCH`): branches such as `main`, commit SHAs and
+malformed refs are rejected before publishing. To republish an existing
 release, dispatch `publish-images` / `publish-chart` manually with that concrete
 tag; there is no path that publishes unreleased `main` as `latest`.
 
