@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Precog — Operational forecasting without the theater</title>
+  <meta name="description" content="Precog is an agent-friendly forecasting capability for real operational time-series: backtest first, forecast when useful, and keep the uncertainty visible.">
+  <meta name="theme-color" content="#f97316">
+  <meta property="og:title" content="Precog — Operational forecasting without the theater">
+  <meta property="og:description" content="Backtest first. Forecast when useful. Keep uncertainty visible.">
+  <meta property="og:type" content="website">
+  <style>
+    :root {
+      --bg: #101010;
+      --bg-2: #171717;
+      --panel: rgba(255,255,255,.052);
+      --panel-2: rgba(255,255,255,.032);
+      --line: rgba(255,255,255,.09);
+      --text: #f5f5f4;
+      --muted: #c5c3bf;
+      --muted-2: #97938d;
+      --orange: #f97316;
+      --orange-2: #fb923c;
+      --sand: #d9ba87;
+      --sand-2: #f1d9b2;
+      --ok: #9bd5a8;
+      --max: 1180px;
+      --radius: 18px;
+      --shadow: 0 28px 80px rgba(0,0,0,.38);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(249,115,22,.18), transparent 26%),
+        radial-gradient(circle at 86% 24%, rgba(217,186,135,.14), transparent 28%),
+        linear-gradient(135deg, #0e0e0e 0%, #171717 45%, #111 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .shell {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(16,16,16,.76);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    .topbar-inner {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      font-weight: 850;
+      letter-spacing: .015em;
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      position: relative;
+      background: linear-gradient(135deg, var(--orange), var(--orange-2) 50%, var(--sand));
+      clip-path: polygon(0 0, 78% 0, 100% 28%, 100% 100%, 22% 100%, 0 72%);
+      box-shadow: 0 12px 32px rgba(249,115,22,.28);
+    }
+
+    .mark::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      background: #171717;
+      clip-path: inherit;
+    }
+
+    .mark::before {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      left: 13px;
+      top: 10px;
+      width: 15px;
+      height: 19px;
+      border-left: 3px solid var(--sand-2);
+      border-top: 3px solid var(--sand-2);
+      transform: skewX(-18deg);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .nav a:hover { color: var(--text); }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn {
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      font-weight: 760;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      color: #151515;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--orange), #f8a65d 55%, var(--sand));
+      box-shadow: 0 16px 40px rgba(249,115,22,.24);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,.035);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 88px 0 58px;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      right: -12vw;
+      top: 48px;
+      width: min(620px, 58vw);
+      height: 390px;
+      background: linear-gradient(135deg, rgba(249,115,22,.2), rgba(217,186,135,.09));
+      clip-path: polygon(20% 0, 100% 0, 78% 100%, 0 100%);
+      filter: blur(10px);
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 44px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      color: var(--sand-2);
+      font-size: .82rem;
+      font-weight: 820;
+      letter-spacing: .075em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 18px;
+      height: 6px;
+      background: linear-gradient(90deg, var(--orange), var(--sand));
+      clip-path: polygon(0 0, 100% 0, 76% 100%, 0 100%);
+    }
+
+    h1 {
+      margin: 22px 0 18px;
+      max-width: 10.4ch;
+      font-size: clamp(3rem, 5.3vw, 5.7rem);
+      line-height: .93;
+      letter-spacing: -.045em;
+    }
+
+    .accent { color: var(--orange-2); }
+
+    .lead {
+      max-width: 66ch;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.12rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 30px;
+    }
+
+    .micro {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 26px;
+      color: var(--muted-2);
+      font-size: .92rem;
+    }
+
+    .micro strong { color: var(--text); }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      padding: 24px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,.09);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.028));
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 6px;
+      background: linear-gradient(90deg, var(--orange), var(--sand));
+    }
+
+    .label {
+      color: var(--orange-2);
+      font-size: .8rem;
+      font-weight: 830;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .terminal {
+      overflow: hidden;
+      border-radius: 15px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.3);
+    }
+
+    .terminal-head {
+      display: flex;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,.025);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.28);
+    }
+
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow: auto;
+      font-size: .88rem;
+      line-height: 1.64;
+      color: #ecebea;
+    }
+
+    .orange { color: var(--orange-2); }
+    .sand { color: var(--sand-2); }
+    .green { color: var(--ok); }
+    .dim { color: #9c9892; }
+
+    section { padding: 42px 0; }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 3.4vw, 3.1rem);
+      line-height: 1.02;
+      letter-spacing: -.035em;
+    }
+
+    .section-copy {
+      max-width: 74ch;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 26px;
+    }
+
+    .card {
+      position: relative;
+      min-height: 226px;
+      overflow: hidden;
+      padding: 24px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 124px;
+      height: 5px;
+      background: linear-gradient(90deg, var(--orange), var(--sand));
+      clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+    }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 35px;
+      height: 35px;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(249,115,22,.23);
+      background: rgba(249,115,22,.11);
+      color: var(--sand-2);
+      font-weight: 850;
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 1.14rem;
+    }
+
+    .card p { margin: 0; color: var(--muted); }
+
+    .split {
+      display: grid;
+      grid-template-columns: .95fr 1.05fr;
+      gap: 20px;
+      margin-top: 26px;
+    }
+
+    .panel {
+      padding: 24px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.025));
+    }
+
+    .bullet-list {
+      display: grid;
+      gap: 18px;
+    }
+
+    .bullet {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 14px;
+    }
+
+    .bullet-mark {
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      background: linear-gradient(135deg, var(--orange), var(--sand));
+      clip-path: polygon(0 0, 100% 0, 76% 100%, 0 100%);
+    }
+
+    .bullet h4 {
+      margin: 0 0 5px;
+      font-size: 1rem;
+    }
+
+    .bullet p { margin: 0; color: var(--muted); }
+
+    .surface-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .surface {
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.22);
+    }
+
+    .surface strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--sand-2);
+      font-size: 1.18rem;
+    }
+
+    .surface span {
+      color: var(--muted-2);
+      font-size: .9rem;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .step {
+      padding: 22px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.032);
+    }
+
+    .step-no {
+      margin-bottom: 9px;
+      color: var(--orange-2);
+      font-size: .8rem;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .step h4 { margin: 0 0 8px; }
+    .step p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+    .code-card {
+      margin-top: 26px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,.08);
+      background: #0b0b0b;
+      box-shadow: var(--shadow);
+    }
+
+    .code-card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      color: var(--muted);
+      background: rgba(255,255,255,.025);
+      font-size: .9rem;
+    }
+
+    .cta {
+      position: relative;
+      overflow: hidden;
+      margin: 24px 0 14px;
+      padding: 36px;
+      border-radius: 26px;
+      border: 1px solid rgba(255,255,255,.09);
+      background:
+        linear-gradient(135deg, rgba(249,115,22,.18), rgba(217,186,135,.1)),
+        rgba(255,255,255,.035);
+    }
+
+    .cta::after {
+      content: "";
+      position: absolute;
+      right: -48px;
+      top: -42px;
+      width: 250px;
+      height: 250px;
+      background: linear-gradient(135deg, rgba(249,115,22,.17), rgba(217,186,135,.04));
+      clip-path: polygon(30% 0, 100% 0, 70% 100%, 0 100%);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .cta h3 {
+      max-width: 14ch;
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 3.2vw, 2.55rem);
+      line-height: 1.02;
+      letter-spacing: -.035em;
+    }
+
+    .cta p {
+      max-width: 68ch;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .cta .hero-actions { margin-top: 22px; }
+
+    .note {
+      margin-top: 18px;
+      color: var(--muted-2);
+      font-size: .88rem;
+    }
+
+    footer {
+      padding: 26px 0 58px;
+      color: var(--muted-2);
+      font-size: .9rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    @media (max-width: 1040px) {
+      .hero-grid, .split, .grid-3, .steps { grid-template-columns: 1fr; }
+      .surface-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .nav { display: none; }
+      .hero { padding-top: 54px; }
+      h1 { max-width: none; }
+      .actions .btn-secondary { display: none; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="#" aria-label="Precog home">
+        <span class="mark" aria-hidden="true"></span>
+        <span>Precog</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary">
+        <a href="#why">Why Precog</a>
+        <a href="#how">How it works</a>
+        <a href="#surfaces">Interfaces</a>
+        <a href="#adopt">Adopt</a>
+      </nav>
+
+      <div class="actions">
+        <a class="btn btn-secondary" href="https://github.com/Albe83/precog">GitHub</a>
+        <a class="btn btn-primary" href="#adopt">Start with Precog</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <div class="eyebrow">Zero-shot forecasting for real systems</div>
+          <h1>See the next operational move <span class="accent">before it hits.</span></h1>
+          <p class="lead">
+            Precog is an agent-friendly forecasting capability for operational time-series.
+            Backtest first. Forecast when useful. Keep the uncertainty visible.
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/Albe83/precog">Explore the repository</a>
+            <a class="btn btn-secondary" href="#why">See why it matters</a>
+          </div>
+
+          <div class="micro">
+            <span><strong>Built for:</strong> infra, SRE, platform and operations</span>
+            <span><strong>Interfaces:</strong> REST, MCP and Python</span>
+            <span><strong>License:</strong> MIT application code</span>
+          </div>
+        </div>
+
+        <aside class="hero-card" aria-label="Example forecasting workflow">
+          <div class="label">Example workflow</div>
+          <div class="terminal">
+            <div class="terminal-head" aria-hidden="true">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+            <pre><span class="orange">objective:</span> Capacity planning
+
+<span class="sand">targets:</span>
+- cluster_cpu_cores
+- cluster_mem_bytes
+
+<span class="sand">horizon:</span> 24h
+
+<span class="orange">evidence:</span>
+<span class="green">✓ memory shows useful signal</span>
+<span class="green">~ baseline CPU is mildly forecastable</span>
+<span class="dim">× bursty spikes remain unpredictable</span>
+
+<span class="sand">decision:</span>
+Use the forecast where it adds signal.
+Do not pretend it predicts everything.</pre>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="why">
+      <div class="shell">
+        <h2 class="section-title">Forecasting without the AI theater.</h2>
+        <p class="section-copy">
+          Operational teams already have metrics, dashboards and alerts. Precog adds a different capability:
+          test whether the behavior you care about is actually forecastable, measure the evidence, and only then
+          produce a forecast worth using.
+        </p>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="num">01</div>
+            <h3>Start from the operational question</h3>
+            <p>
+              Capacity, growth, utilization, workload drift. Precog is a forecasting engine, not a data-source
+              adapter or an all-purpose observability product.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="num">02</div>
+            <h3>Backtest before trust</h3>
+            <p>
+              Evaluate held-out history, inspect per-target error and interval coverage, and compare with simple
+              baselines before deciding whether the model adds useful signal.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="num">03</div>
+            <h3>Keep the limits explicit</h3>
+            <p>
+              Stable levels and trends may be forecastable. Sudden deployments, failures and external decisions
+              may not be. A useful answer can be “do not forecast this”.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="surfaces">
+      <div class="shell">
+        <div class="split">
+          <div class="panel">
+            <div class="label">Designed for adoption</div>
+            <div class="bullet-list">
+              <div class="bullet">
+                <div class="bullet-mark" aria-hidden="true"></div>
+                <div>
+                  <h4>Agent-friendly semantics</h4>
+                  <p>MCP exposes forecasting and backtesting as focused semantic capabilities, not infrastructure-specific workflows.</p>
+                </div>
+              </div>
+
+              <div class="bullet">
+                <div class="bullet-mark" aria-hidden="true"></div>
+                <div>
+                  <h4>Joint forecasting when the problem is joint</h4>
+                  <p>Related targets can be evaluated together even when units or numeric scales differ.</p>
+                </div>
+              </div>
+
+              <div class="bullet">
+                <div class="bullet-mark" aria-hidden="true"></div>
+                <div>
+                  <h4>Caller-owned data preparation</h4>
+                  <p>Precog does not silently interpolate, truncate or mutate caller data. The meaning of the series stays explicit.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="label">Supported v1 surfaces</div>
+            <p class="section-copy">
+              Use Precog from the interface that fits your environment. The execution model stays consistent across the supported surfaces.
+            </p>
+
+            <div class="surface-grid">
+              <div class="surface">
+                <strong>REST</strong>
+                <span>Canonical synchronous execution API</span>
+              </div>
+              <div class="surface">
+                <strong>MCP</strong>
+                <span>Agent-facing forecast and backtest workflows</span>
+              </div>
+              <div class="surface">
+                <strong>Python</strong>
+                <span>Sync and async execution clients</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="shell">
+        <h2 class="section-title">A simple discipline.</h2>
+        <p class="section-copy">
+          Precog deliberately keeps the workflow small: obtain the right series, define what “useful” means,
+          backtest the forecasting problem, compare evidence, then forecast only when the result deserves it.
+        </p>
+
+        <div class="steps">
+          <article class="step">
+            <div class="step-no">Step 01</div>
+            <h4>Bring the series</h4>
+            <p>Acquire and prepare numeric, aligned, equally sampled observations that represent the problem you actually want to forecast.</p>
+          </article>
+
+          <article class="step">
+            <div class="step-no">Step 02</div>
+            <h4>Declare the objective</h4>
+            <p>Choose a horizon that matches the operational decision instead of optimizing an abstract metric.</p>
+          </article>
+
+          <article class="step">
+            <div class="step-no">Step 03</div>
+            <h4>Backtest the hypothesis</h4>
+            <p>Use held-out evidence, simple baselines and multiple historical cutoffs when the decision matters.</p>
+          </article>
+
+          <article class="step">
+            <div class="step-no">Step 04</div>
+            <h4>Forecast where useful</h4>
+            <p>Adopt the capability where it improves the decision. Keep uncertainty and failure modes visible.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <h2 class="section-title">Start small.</h2>
+        <p class="section-copy">
+          Run Precog locally with the fake engine for contract testing, or connect the real TimesFM-3 runtime when you are ready to evaluate real forecasts.
+        </p>
+
+        <div class="code-card">
+          <div class="code-card-header">Local development</div>
+          <pre><span class="dim"># install the workspace</span>
+<span class="sand">uv sync --all-packages</span>
+
+<span class="dim"># start the execution API with the deterministic fake engine</span>
+<span class="orange">PRECOG_ENGINE=fake</span> <span class="sand">uv run precog-api</span>
+
+<span class="dim"># expose the semantic MCP surface</span>
+<span class="orange">PRECOG_API_URL=http://localhost:8000</span> <span class="sand">uv run --no-sync precog-mcp</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="adopt">
+      <div class="shell">
+        <div class="cta">
+          <div class="label">Adopt Precog</div>
+          <h3>Forecast what matters. Ignore the rest.</h3>
+          <p>
+            If your team already has operational time-series and real decisions to make, you have enough to start.
+            Precog gives agents and engineers a small, explicit forecasting capability instead of another vertical platform.
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/Albe83/precog">Open Precog on GitHub</a>
+            <a class="btn btn-secondary" href="https://github.com/Albe83/precog/blob/main/docs/mcp.md">Read the MCP guide</a>
+          </div>
+
+          <p class="note">
+            Application code is MIT. TimesFM-3 model weights are distributed separately under the TimesFM Non-Commercial License v1.0 and are not included in Precog images.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <div>Precog — operational forecasting without pretending reality is simpler than it is.</div>
+      <div class="footer-links">
+        <a href="https://github.com/Albe83/precog">Repository</a>
+        <a href="https://github.com/Albe83/precog/blob/main/docs/deploy.md">Deploy</a>
+        <a href="https://github.com/Albe83/precog/blob/main/docs/mcp.md">MCP</a>
+        <a href="https://github.com/Albe83/precog/blob/main/LICENSE">License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
