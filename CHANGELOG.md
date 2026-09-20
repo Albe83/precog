@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.19.0](https://github.com/Albe83/precog/compare/v0.18.0...v0.19.0) (2026-09-20)
+
+
+### Features
+
+* **api:** redesign /v1/capabilities as execution/runtime discovery ([#188](https://github.com/Albe83/precog/issues/188)) ([4cdaa5e](https://github.com/Albe83/precog/commit/4cdaa5e1489d0d01dd04ccedbba65c52d4b31855))
+
 ## [0.18.0](https://github.com/Albe83/precog/compare/v0.17.3...v0.18.0) (2026-09-20)
 
 
