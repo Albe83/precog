@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); the project
 follows [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.2.0](https://github.com/Albe83/precog/compare/v1.1.0...v1.2.0) (2026-09-20)
+
+
+### Features
+
+* **docs:** add Precog adoption landing page ([922c0b5](https://github.com/Albe83/precog/commit/922c0b552a1ae0692633c82794f56448a4858c1e))
+
 ## [1.1.0](https://github.com/Albe83/precog/compare/v1.0.1...v1.1.0) (2026-09-20)
 
 
