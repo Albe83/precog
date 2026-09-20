@@ -1,6 +1,6 @@
 [project]
 name = "precog-api"
-version = "0.21.1"
+version = "1.0.0"
 description = "Precog REST API exposing TimesFM-3 forecasts."
 readme = "README.md"
 requires-python = ">=3.12"
