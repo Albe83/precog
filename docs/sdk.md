@@ -187,4 +187,5 @@ PRECOG_CACHE_DIR=/path/to/models \
 
 A TypeScript client (`@precog/sdk`) lives in `packages/sdk-ts` (Node 18+ and
 browsers, `fetch`-based) with the same execution `forecast`/`capabilities`
-surface; see `packages/sdk-ts/README.md`.
+surface; see `packages/sdk-ts/README.md`. It is **experimental and outside the
+supported v1 surface** and must not drive the REST/MCP/Python architecture.
