@@ -26,9 +26,9 @@ LABEL = os.environ.get("LABEL", "")
 OUT = Path(__file__).parent / "data" / (f"load_test_{LABEL}.json" if LABEL else "load_test.json")
 
 PAYLOAD = {
-    "mode": "univariate",
     "horizon": 24,
-    "series": [{"id": "synthetic", "target": generate_series(168).tolist()}],
+    "targets": [{"id": "synthetic", "values": generate_series(168).tolist()}],
+    "quantiles": [0.1, 0.5, 0.9],
 }
 
 

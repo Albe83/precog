@@ -4,10 +4,15 @@ import test from "node:test";
 import { PrecogAPIError, PrecogClient, PrecogConnectionError } from "../src/index.js";
 
 const RESPONSE = {
-  model: "timesfm-3.0",
   horizon: 2,
-  quantile_levels: [0.1, 0.5, 0.9],
-  results: [{ id: "a", forecast: [1, 2] }],
+  targets: [
+    {
+      id: "a",
+      forecast: [1, 2],
+      quantiles: [{ level: 0.5, values: [1, 2] }],
+    },
+  ],
+  model: { id: "timesfm-3.0", revision: null },
   usage: { latency_ms: 1, context_len: 3 },
 };
 
@@ -25,10 +30,11 @@ test("forecast parses the response", async () => {
   });
   const result = await client.forecast({
     horizon: 2,
-    series: [{ id: "a", target: [1, 2, 3] }],
+    targets: [{ id: "a", values: [1, 2, 3] }],
+    quantiles: [0.5],
   });
-  assert.equal(result.model, "timesfm-3.0");
-  assert.deepEqual(result.results[0]?.forecast, [1, 2]);
+  assert.equal(result.model.id, "timesfm-3.0");
+  assert.deepEqual(result.targets[0]?.forecast, [1, 2]);
 });
 
 test("api errors are mapped", async () => {
@@ -39,7 +45,7 @@ test("api errors are mapped", async () => {
       jsonResponse({ title: "Unprocessable Entity", detail: "horizon exceeds max" }, 422),
   });
   await assert.rejects(
-    () => client.forecast({ horizon: 99999, series: [{ id: "a", target: [1] }] }),
+    () => client.forecast({ horizon: 99999, targets: [{ id: "a", values: [1] }] }),
     (error: unknown) => {
       assert.ok(error instanceof PrecogAPIError);
       assert.equal(error.status, 422);
@@ -60,9 +66,9 @@ test("transient errors are retried", async () => {
       return calls === 1 ? jsonResponse({}, 503) : jsonResponse(RESPONSE);
     },
   });
-  const result = await client.forecast({ horizon: 2, series: [{ id: "a", target: [1, 2, 3] }] });
+  const result = await client.forecast({ horizon: 2, targets: [{ id: "a", values: [1, 2, 3] }] });
   assert.equal(calls, 2);
-  assert.equal(result.model, "timesfm-3.0");
+  assert.equal(result.model.id, "timesfm-3.0");
 });
 
 test("connection errors are mapped", async () => {
@@ -74,15 +80,18 @@ test("connection errors are mapped", async () => {
     },
   });
   await assert.rejects(
-    () => client.forecast({ horizon: 1, series: [{ id: "a", target: [1] }] }),
+    () => client.forecast({ horizon: 1, targets: [{ id: "a", values: [1] }] }),
     PrecogConnectionError,
   );
 });
 
 test("invalid requests are rejected locally", async () => {
-  const client = new PrecogClient({ baseUrl: "http://api.test", fetch: async () => jsonResponse({}) });
+  const client = new PrecogClient({
+    baseUrl: "http://api.test",
+    fetch: async () => jsonResponse({}),
+  });
   await assert.rejects(
-    () => client.forecast({ horizon: 0, series: [{ id: "a", target: [1] }] }),
+    () => client.forecast({ horizon: 0, targets: [{ id: "a", values: [1] }] }),
     /horizon must be a positive integer/,
   );
 });

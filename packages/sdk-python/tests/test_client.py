@@ -15,10 +15,15 @@ from precog_schemas import ForecastResponse
 pytestmark = pytest.mark.unit
 
 VALID_RESPONSE = {
-    "model": "timesfm-3.0",
     "horizon": 2,
-    "quantile_levels": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-    "results": [{"id": "a", "forecast": [1.0, 2.0]}],
+    "targets": [
+        {
+            "id": "a",
+            "forecast": [1.0, 2.0],
+            "quantiles": [{"level": 0.5, "values": [1.0, 2.0]}],
+        }
+    ],
+    "model": {"id": "timesfm-3.0", "revision": None},
     "usage": {"latency_ms": 1.0, "context_len": 3},
 }
 
@@ -35,10 +40,15 @@ def test_forecast_parses_response() -> None:
         return httpx.Response(200, json=VALID_RESPONSE)
 
     with _client(handler) as client:
-        response = client.forecast(horizon=2, series=[{"id": "a", "target": [1.0, 2.0, 3.0]}])
+        response = client.forecast(
+            horizon=2,
+            targets=[{"id": "a", "values": [1.0, 2.0, 3.0]}],
+            quantiles=[0.5],
+        )
 
     assert isinstance(response, ForecastResponse)
-    assert response.results[0].forecast == [1.0, 2.0]
+    assert response.targets[0].forecast == [1.0, 2.0]
+    assert response.model.id == "timesfm-3.0"
 
 
 def test_api_error_is_mapped() -> None:
@@ -55,7 +65,7 @@ def test_api_error_is_mapped() -> None:
 
     with _client(handler) as client:
         with pytest.raises(PrecogAPIError) as excinfo:
-            client.forecast(horizon=99999, series=[{"id": "a", "target": [1.0]}])
+            client.forecast(horizon=99999, targets=[{"id": "a", "values": [1.0]}])
 
     assert excinfo.value.status_code == 422
     assert excinfo.value.detail == "horizon exceeds max"
@@ -73,10 +83,10 @@ def test_retries_transient_errors_then_succeeds() -> None:
         return httpx.Response(200, json=VALID_RESPONSE)
 
     with _client(handler, max_retries=1) as client:
-        response = client.forecast(horizon=2, series=[{"id": "a", "target": [1.0, 2.0, 3.0]}])
+        response = client.forecast(horizon=2, targets=[{"id": "a", "values": [1.0, 2.0, 3.0]}])
 
     assert calls == 2
-    assert response.model == "timesfm-3.0"
+    assert response.model.id == "timesfm-3.0"
 
 
 def test_invalid_payload_is_rejected_locally() -> None:
@@ -91,10 +101,24 @@ def test_invalid_payload_is_rejected_locally() -> None:
         with pytest.raises(PrecogValidationError):
             client.forecast(
                 horizon=2,
-                series=[{"id": "a", "target": [1.0, 2.0], "past_covariates": {"x": [1.0]}}],
+                targets=[{"id": "a", "values": [1.0, 2.0, 3.0]}],
+                past_covariates=[{"id": "p", "values": [1.0]}],
             )
 
     assert called is False
+
+
+def test_unsupported_quantile_is_rejected_locally() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=VALID_RESPONSE)
+
+    with _client(handler) as client:
+        with pytest.raises(PrecogValidationError):
+            client.forecast(
+                horizon=1,
+                targets=[{"id": "a", "values": [1.0]}],
+                quantiles=[0.55],
+            )
 
 
 def test_connection_error_is_mapped() -> None:
@@ -103,7 +127,7 @@ def test_connection_error_is_mapped() -> None:
 
     with _client(handler) as client:
         with pytest.raises(PrecogConnectionError):
-            client.forecast(horizon=1, series=[{"id": "a", "target": [1.0]}])
+            client.forecast(horizon=1, targets=[{"id": "a", "values": [1.0]}])
 
 
 def test_timeout_is_mapped() -> None:
@@ -112,7 +136,7 @@ def test_timeout_is_mapped() -> None:
 
     with _client(handler) as client:
         with pytest.raises(PrecogTimeoutError):
-            client.forecast(horizon=1, series=[{"id": "a", "target": [1.0]}])
+            client.forecast(horizon=1, targets=[{"id": "a", "values": [1.0]}])
 
 
 def test_capabilities_parses_response() -> None:

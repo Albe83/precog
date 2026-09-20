@@ -10,7 +10,7 @@ from pathlib import Path
 
 from precog_client.client import PrecogClient
 from precog_client.errors import PrecogError
-from precog_schemas import ForecastOptions, ForecastRequest, Mode, SeriesInput
+from precog_schemas import ForecastRequest, HistoricalSeries
 
 
 def request_from_csv(
@@ -18,9 +18,9 @@ def request_from_csv(
     *,
     horizon: int,
     series_id: str = "series",
-    mode: str | Mode = Mode.univariate,
+    quantiles: list[float] | None = None,
 ) -> ForecastRequest:
-    """Build a univariate request from a single-column CSV (header optional)."""
+    """Build a single-target request from a single-column CSV (header optional)."""
     values: list[float] = []
     with Path(path).open(newline="") as handle:
         for row in csv.reader(handle):
@@ -33,10 +33,9 @@ def request_from_csv(
     if not values:
         raise ValueError(f"no numeric values found in {path}")
     return ForecastRequest(
-        mode=Mode(mode),
         horizon=horizon,
-        series=[SeriesInput(id=series_id, target=values)],
-        options=ForecastOptions(),
+        targets=[HistoricalSeries(id=series_id, values=values)],
+        quantiles=list(quantiles or []),
     )
 
 
@@ -53,10 +52,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     forecast = sub.add_parser("forecast", help="Run a forecast.")
     forecast.add_argument("--file", help="ForecastRequest JSON file.")
-    forecast.add_argument("--csv", help="Single-column CSV series (univariate).")
+    forecast.add_argument("--csv", help="Single-column CSV series.")
     forecast.add_argument("--horizon", type=int, default=24, help="Steps to forecast.")
     forecast.add_argument("--id", default="series", help="Series id for --csv.")
-    forecast.add_argument("--mode", default="univariate", choices=["univariate", "multivariate"])
+    forecast.add_argument(
+        "--quantiles",
+        default="",
+        help="Comma-separated quantile levels, e.g. 0.1,0.5,0.9 (default: point-only).",
+    )
 
     sub.add_parser("capabilities", help="Show model and API capabilities.")
     return parser
@@ -75,8 +78,9 @@ def main(argv: list[str] | None = None) -> int:
                     mode="json"
                 )
             elif args.csv:
+                quantiles = [float(level) for level in args.quantiles.split(",") if level.strip()]
                 request = request_from_csv(
-                    args.csv, horizon=args.horizon, series_id=args.id, mode=args.mode
+                    args.csv, horizon=args.horizon, series_id=args.id, quantiles=quantiles
                 )
                 payload = client.forecast_request(request).model_dump(mode="json")
             else:

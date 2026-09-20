@@ -16,11 +16,11 @@ def test_contract_against_live_api() -> None:
 
     with PrecogClient(base_url, timeout=60.0) as client:
         response = client.forecast(
-            mode="univariate",
             horizon=3,
-            series=[{"id": "s", "target": [100, 102, 101, 105, 107, 106, 108, 109, 112, 111]}],
+            targets=[{"id": "s", "values": [100, 102, 101, 105, 107, 106, 108, 109, 112, 111]}],
+            quantiles=[0.1, 0.5, 0.9],
         )
 
-    assert response.model == "timesfm-3.0"
-    assert len(response.results[0].forecast) == 3
-    assert response.quantile_levels[-1] == 0.9
+    assert response.model.id == "timesfm-3.0"
+    assert len(response.targets[0].forecast) == 3
+    assert [quantile.level for quantile in response.targets[0].quantiles] == [0.1, 0.5, 0.9]

@@ -27,46 +27,46 @@ without torch, use the deterministic fake engine:
 ```bash
 PRECOG_ENGINE=fake uv run precog-api
 curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d '{
-  "mode": "univariate",
   "horizon": 4,
-  "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}]
+  "targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}],
+  "quantiles": [0.1, 0.5, 0.9]
 }'
 ```
 
-## Modes and covariates
+## Targets and covariates
 
-`POST /v1/forecast` has two modes:
+`POST /v1/forecast` takes a single canonical execution problem (ADR 0006).
+Multiple `targets` are forecast **jointly**; covariates are declared once at
+request level:
 
-- **univariate** — each series is forecast independently; covariates are
-  attached to each series (`past_covariates`, `future_covariates`).
-- **multivariate** — all series are target variates of one joint context;
-  covariates are declared once at request level.
+- `past_covariates` are known only during the context and must match the target
+  context length;
+- `known_future_covariates` carry `history` (context length) and `future`
+  (`horizon`).
 
-Past covariates must match the context length; future covariates must match
-`context + horizon`.
+`quantiles` lists the requested levels (`[]` means point-only); unsupported
+levels are rejected.
 
 ```bash
 curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d '{
-  "mode": "multivariate",
   "horizon": 3,
-  "series": [
-    {"id": "brand_a", "target": [100,102,101,105,107,106]},
-    {"id": "brand_b", "target": [80,81,80,83,85,84]}
+  "targets": [
+    {"id": "brand_a", "values": [100,102,101,105,107,106]},
+    {"id": "brand_b", "values": [80,81,80,83,85,84]}
   ],
-  "past_covariates": {"footfall": [0.1,0.2,0.15,0.3,0.4,0.35]},
-  "future_covariates": {"promo": [0,1,0,0,0,1,0,1,0]}
+  "past_covariates": [{"id": "footfall", "values": [0.1,0.2,0.15,0.3,0.4,0.35]}],
+  "known_future_covariates": [
+    {"id": "promo", "history": [0,1,0,0,0,1], "future": [0,1,0]}
+  ],
+  "quantiles": [0.1, 0.9]
 }'
 ```
 
 The same contract is available as OpenAPI examples on `/docs`.
 
-`options.quantile_spread_scale` (default `1.0`) scales the quantile spread
-around the median; values above 1 widen the prediction intervals. The default is
-well calibrated on aggregate (see `benchmarks/calibration.py`).
-
-Non-finite inputs (`NaN`/`Inf`) are rejected with a clear error. Set
-`options.interpolate_missing=true` to fill interior gaps by linear
-interpolation; leading/trailing `NaN`s are still rejected.
+Only the requested quantile levels are returned, as self-describing
+`{level, values}` entries per target. Non-finite inputs (`NaN`/`Inf`) are
+rejected: Precog never interpolates, truncates or otherwise mutates caller data.
 
 ## Configuration
 

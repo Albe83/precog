@@ -41,21 +41,22 @@ FULL_REQUEST = {
 
 def _rest_payload(ids: list[str], horizon: int) -> dict[str, Any]:
     return {
-        "model": "timesfm-3.0",
         "horizon": horizon,
-        "quantile_levels": list(QUANTILE_LEVELS),
-        "results": [
+        "targets": [
             {
                 "id": series_id,
                 "forecast": [1.0] * horizon,
-                # Canonical REST orientation: [horizon][quantile].
                 "quantiles": [
-                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
-                    for row in range(horizon)
+                    {
+                        "level": level,
+                        "values": [float(row + column) for row in range(horizon)],
+                    }
+                    for column, level in enumerate(QUANTILE_LEVELS)
                 ],
             }
             for series_id in ids
         ],
+        "model": {"id": "timesfm-3.0", "revision": None},
         "usage": {"latency_ms": 1.0, "context_len": 6},
     }
 
@@ -83,7 +84,7 @@ def handler(request: httpx.Request) -> httpx.Response:
     body = json.loads(request.content)
     if body["horizon"] > 1024:
         return httpx.Response(422, json={"title": "Unprocessable Entity", "detail": "too long"})
-    ids = [series["id"] for series in body["series"]]
+    ids = [target["id"] for target in body["targets"]]
     return httpx.Response(200, json=_rest_payload(ids, body["horizon"]))
 
 

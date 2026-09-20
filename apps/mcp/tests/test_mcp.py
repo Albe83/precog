@@ -26,21 +26,22 @@ BACKTEST_ARGS = {"targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}], "horizon":
 
 def _rest_payload(ids: list[str], horizon: int = 2) -> dict[str, Any]:
     return {
-        "model": "timesfm-3.0",
         "horizon": horizon,
-        "quantile_levels": list(QUANTILE_LEVELS),
-        "results": [
+        "targets": [
             {
                 "id": series_id,
                 "forecast": [1.0] * horizon,
-                # Canonical REST orientation: [horizon][quantile].
                 "quantiles": [
-                    [float(row + column) for column in range(len(QUANTILE_LEVELS))]
-                    for row in range(horizon)
+                    {
+                        "level": level,
+                        "values": [float(row + column) for row in range(horizon)],
+                    }
+                    for column, level in enumerate(QUANTILE_LEVELS)
                 ],
             }
             for series_id in ids
         ],
+        "model": {"id": "timesfm-3.0", "revision": None},
         "usage": {"latency_ms": 1.0, "context_len": 3},
     }
 
@@ -67,7 +68,7 @@ def _ok_handler(request: httpx.Request) -> httpx.Response:
     if request.method == "GET" and request.url.path == "/v1/capabilities":
         return httpx.Response(200, json=_capabilities_payload())
     body = json.loads(request.content)
-    ids = [series["id"] for series in body["series"]]
+    ids = [target["id"] for target in body["targets"]]
     return httpx.Response(200, json=_rest_payload(ids, body["horizon"]))
 
 

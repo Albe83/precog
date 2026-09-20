@@ -174,7 +174,7 @@ Publish through the Gateway API (needs the CRDs; attach to an existing Gateway):
 ```bash
 kubectl -n precog port-forward svc/precog 8000:80
 curl -s localhost:8000/v1/forecast -H 'content-type: application/json' -d \
-  '{"mode":"univariate","horizon":4,"series":[{"id":"a","target":[1,2,3,4,5]}]}'
+  '{"horizon":4,"targets":[{"id":"a","values":[1,2,3,4,5]}],"quantiles":[0.1,0.9]}'
 ```
 
 ## Upgrade / uninstall

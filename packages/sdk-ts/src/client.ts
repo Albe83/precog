@@ -42,8 +42,8 @@ export class PrecogClient {
 
   /** Run a synchronous forecast (`POST /v1/forecast`). */
   forecast(request: ForecastRequest): Promise<ForecastResponse> {
-    if (!Array.isArray(request?.series) || request.series.length === 0) {
-      return Promise.reject(new PrecogValidationError("series must be a non-empty array"));
+    if (!Array.isArray(request?.targets) || request.targets.length === 0) {
+      return Promise.reject(new PrecogValidationError("targets must be a non-empty array"));
     }
     if (!Number.isInteger(request.horizon) || request.horizon <= 0) {
       return Promise.reject(new PrecogValidationError("horizon must be a positive integer"));

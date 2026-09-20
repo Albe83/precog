@@ -3,23 +3,27 @@
 from precog_schemas.models import (
     QUANTILE_LEVELS,
     Capabilities,
-    ForecastOptions,
     ForecastRequest,
     ForecastResponse,
+    HistoricalSeries,
+    KnownFutureSeries,
     Mode,
-    SeriesForecast,
-    SeriesInput,
+    ModelProvenance,
+    QuantileForecast,
+    TargetForecast,
     Usage,
 )
 
 __all__ = [
     "QUANTILE_LEVELS",
     "Capabilities",
-    "ForecastOptions",
     "ForecastRequest",
     "ForecastResponse",
+    "HistoricalSeries",
+    "KnownFutureSeries",
     "Mode",
-    "SeriesForecast",
-    "SeriesInput",
+    "ModelProvenance",
+    "QuantileForecast",
+    "TargetForecast",
     "Usage",
 ]

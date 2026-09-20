@@ -18,15 +18,14 @@ from precog_client.errors import (
 )
 from precog_schemas import (
     Capabilities,
-    ForecastOptions,
     ForecastRequest,
     ForecastResponse,
-    Mode,
-    SeriesInput,
+    HistoricalSeries,
+    KnownFutureSeries,
 )
 
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
-SeriesLike = SeriesInput | Mapping[str, Any]
+SeriesLike = HistoricalSeries | Mapping[str, Any]
 
 
 class PrecogClient:
@@ -35,11 +34,10 @@ class PrecogClient:
     Example:
         >>> with PrecogClient("http://localhost:8000") as client:
         ...     response = client.forecast(
-        ...         mode="univariate",
         ...         horizon=4,
-        ...         series=[{"id": "a", "target": [1.0, 2.0, 3.0]}],
+        ...         targets=[{"id": "a", "values": [1.0, 2.0, 3.0]}],
         ...     )
-        ...     response.results[0].forecast
+        ...     response.targets[0].forecast
     """
 
     def __init__(
@@ -77,27 +75,29 @@ class PrecogClient:
     def forecast(
         self,
         *,
-        mode: Mode | str = Mode.univariate,
         horizon: int,
-        series: Sequence[SeriesLike],
-        return_quantiles: bool = True,
-        past_covariates: Mapping[str, Sequence[float]] | None = None,
-        future_covariates: Mapping[str, Sequence[float]] | None = None,
+        targets: Sequence[SeriesLike],
+        past_covariates: Sequence[SeriesLike] | None = None,
+        known_future_covariates: Sequence[SeriesLike] | None = None,
+        quantiles: Sequence[float] | None = None,
     ) -> ForecastResponse:
-        """Build a request and call ``POST /v1/forecast``.
+        """Build a canonical execution request and call ``POST /v1/forecast``.
 
-        ``past_covariates`` / ``future_covariates`` are request-level and are
-        only valid in multivariate mode; in univariate mode attach covariates
-        to each series.
+        ``targets`` are forecast jointly. ``quantiles`` defaults to empty, which
+        means a point-only forecast.
         """
         try:
             request = ForecastRequest(
-                mode=Mode(mode),
                 horizon=horizon,
-                series=[SeriesInput.model_validate(item) for item in series],
-                options=ForecastOptions(return_quantiles=return_quantiles),
-                past_covariates={k: list(v) for k, v in (past_covariates or {}).items()},
-                future_covariates={k: list(v) for k, v in (future_covariates or {}).items()},
+                targets=[HistoricalSeries.model_validate(item) for item in targets],
+                past_covariates=[
+                    HistoricalSeries.model_validate(item) for item in (past_covariates or [])
+                ],
+                known_future_covariates=[
+                    KnownFutureSeries.model_validate(item)
+                    for item in (known_future_covariates or [])
+                ],
+                quantiles=list(quantiles or []),
             )
         except (PydanticValidationError, ValueError) as exc:
             raise PrecogValidationError(str(exc)) from exc

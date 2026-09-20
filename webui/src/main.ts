@@ -1,4 +1,4 @@
-import { PrecogClient, type ForecastResponse, type Mode } from "@precog/sdk";
+import { PrecogClient, type ForecastResponse } from "@precog/sdk";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -6,7 +6,6 @@ const form = $<HTMLFormElement>("form");
 const apiUrl = $<HTMLInputElement>("apiUrl");
 const seriesInput = $<HTMLTextAreaElement>("series");
 const horizonInput = $<HTMLInputElement>("horizon");
-const modeSelect = $<HTMLSelectElement>("mode");
 const status = $<HTMLParagraphElement>("status");
 const canvas = $<HTMLCanvasElement>("chart");
 
@@ -41,10 +40,12 @@ function draw(response: ForecastResponse, context: number[]): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const result = response.results[0];
+  const result = response.targets[0];
   const forecast = result.forecast;
-  const quantiles = result.quantiles ?? [];
-  const values = [...context, ...forecast, ...quantiles.flat()];
+  const quantiles = [...(result.quantiles ?? [])].sort((a, b) => a.level - b.level);
+  const lower = quantiles[0]?.values ?? [];
+  const upper = quantiles[quantiles.length - 1]?.values ?? [];
+  const values = [...context, ...forecast, ...quantiles.flatMap((q) => q.values)];
   if (values.length === 0) return;
 
   const min = Math.min(...values);
@@ -65,18 +66,18 @@ function draw(response: ForecastResponse, context: number[]): void {
     ctx.stroke();
   };
 
-  if (quantiles.length) {
+  if (upper.length && lower.length) {
     const base = context.length;
     ctx.fillStyle = "rgba(59, 130, 246, 0.20)";
     ctx.beginPath();
-    quantiles.forEach((q, i) => {
+    upper.forEach((value, i) => {
       const px = x(base + i);
-      const py = y(q[8]);
+      const py = y(value);
       if (i === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     });
-    for (let i = quantiles.length - 1; i >= 0; i--) {
-      ctx.lineTo(x(base + i), y(quantiles[i][0]));
+    for (let i = lower.length - 1; i >= 0; i--) {
+      ctx.lineTo(x(base + i), y(lower[i]));
     }
     ctx.closePath();
     ctx.fill();
@@ -98,12 +99,12 @@ form.addEventListener("submit", async (event) => {
   status.textContent = "forecasting…";
   try {
     const response = await client().forecast({
-      mode: modeSelect.value as Mode,
       horizon: Number(horizonInput.value),
-      series: [{ id: "series", target: context }],
+      targets: [{ id: "series", values: context }],
+      quantiles: [0.1, 0.9],
     });
     draw(response, context);
-    status.textContent = `ok · ${response.usage.latency_ms.toFixed(1)} ms · ${response.model}`;
+    status.textContent = `ok · ${response.usage.latency_ms.toFixed(1)} ms · ${response.model.id}`;
   } catch (error) {
     status.textContent = `error: ${(error as Error).message}`;
   }

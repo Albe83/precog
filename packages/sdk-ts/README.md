@@ -24,25 +24,26 @@ const caps = await client.capabilities();
 console.log(caps.max_horizon, caps.modes);
 
 const response = await client.forecast({
-  mode: "univariate",
   horizon: 4,
-  series: [{ id: "sales", target: [100, 102, 101, 105, 107, 106, 108, 109] }],
+  targets: [{ id: "sales", values: [100, 102, 101, 105, 107, 106, 108, 109] }],
+  quantiles: [0.1, 0.9],
 });
-console.log(response.results[0].forecast);
+console.log(response.targets[0].forecast);
 ```
 
-Multivariate with request-level covariates:
+Multiple targets forecast jointly, with request-level covariates:
 
 ```ts
 await client.forecast({
-  mode: "multivariate",
   horizon: 3,
-  series: [
-    { id: "a", target: [100, 102, 101, 105, 107, 106] },
-    { id: "b", target: [80, 81, 80, 83, 85, 84] },
+  targets: [
+    { id: "a", values: [100, 102, 101, 105, 107, 106] },
+    { id: "b", values: [80, 81, 80, 83, 85, 84] },
   ],
-  past_covariates: { footfall: [0.1, 0.2, 0.15, 0.3, 0.4, 0.35] },
-  future_covariates: { promo: [0, 1, 0, 0, 0, 1, 0, 1, 0] },
+  past_covariates: [{ id: "footfall", values: [0.1, 0.2, 0.15, 0.3, 0.4, 0.35] }],
+  known_future_covariates: [
+    { id: "promo", history: [0, 1, 0, 0, 0, 1], future: [0, 1, 0] },
+  ],
 });
 ```
 

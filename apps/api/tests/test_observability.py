@@ -10,9 +10,9 @@ from precog_api.engine import FakeEngine
 pytestmark = pytest.mark.unit
 
 PAYLOAD = {
-    "mode": "univariate",
     "horizon": 2,
-    "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}],
+    "targets": [{"id": "a", "values": [1.0, 2.0, 3.0]}],
+    "quantiles": [0.5],
 }
 
 
@@ -66,4 +66,4 @@ def test_openapi_contains_request_examples() -> None:
     examples = document["paths"]["/v1/forecast"]["post"]["requestBody"]["content"][
         "application/json"
     ]["examples"]
-    assert {"univariate", "covariates", "multivariate"} <= set(examples)
+    assert {"targets", "covariates", "joint_targets", "point_only"} <= set(examples)
