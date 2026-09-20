@@ -112,6 +112,15 @@ def test_single_target_variate_limit() -> None:
     assert response.status_code == 422
 
 
+def test_variate_budget_is_independent_of_target_ceiling() -> None:
+    # 1 target + 12 covariates = 13 variates: above the target ceiling (10) but
+    # below the engine's variate budget (32), so it must be accepted.
+    engine = FakeEngine(max_variates=32)
+    with make_client(engine, max_series=10) as client:
+        response = client.post("/v1/forecast", json=_single_target(4, n_past=12))
+    assert response.status_code == 200
+
+
 def test_capabilities_advertise_effective_limits() -> None:
     engine = FakeEngine(max_context=15360, max_variates=32)
     with make_client(engine, max_context=16384, max_series=64) as client:

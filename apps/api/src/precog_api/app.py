@@ -146,9 +146,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         version="0.1.0",
         summary="Zero-shot forecasting with TimesFM-3.",
         description=(
-            "Synchronous TimesFM-3 forecasting. "
+            "Synchronous TimesFM-3 execution. "
             f"Limits: horizon <= {settings.max_horizon}, context <= {settings.max_context}, "
-            f"series <= {settings.max_series}. Errors use RFC 7807 "
+            f"targets <= {settings.max_series}. Errors use RFC 7807 "
             "(`application/problem+json`)."
             + (" Bearer authentication is required." if settings.api_key else "")
         ),
@@ -277,7 +277,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         dependencies=[Depends(require_api_key)],
         tags=["forecast"],
         summary="Forecast time series",
-        response_description="Point forecast and 9 quantiles per series.",
+        response_description="Point forecast and the caller-selected quantiles per target.",
         responses={
             401: {"description": "Missing or invalid API key"},
             422: {"description": "Validation error or configured limit exceeded"},
@@ -369,16 +369,18 @@ def _enforce_limits(payload: ForecastRequest, settings: Settings, engine: Engine
                 "Precog never truncates input to fit the model context"
             ),
         )
-    effective_variates = _min_limit(settings.max_series, engine.max_variates)
-    variates = _max_unit_variates(payload)
-    if variates > effective_variates:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"{variates} variates exceed max {effective_variates}; "
-                "Precog never drops or chunks covariates/targets to fit the model"
-            ),
-        )
+    # The target policy ceiling and the backend execution budget are distinct:
+    # targets + covariate channels share the engine's forward-pass budget.
+    if engine.max_variates is not None:
+        variates = _max_unit_variates(payload)
+        if variates > engine.max_variates:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"{variates} variates exceed max {engine.max_variates}; "
+                    "Precog never drops or chunks covariates/targets to fit the model"
+                ),
+            )
 
 
 def _status_title(status_code: int) -> str:

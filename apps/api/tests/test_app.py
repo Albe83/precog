@@ -129,6 +129,36 @@ def test_nan_target_rejected() -> None:
         assert "non-finite" in response.json()["detail"]
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"mode": "univariate"},
+        {"options": {"interpolate_missing": True}},
+        {"return_quantiles": True},
+    ],
+)
+def test_removed_top_level_fields_are_rejected(overrides: dict) -> None:
+    with make_client() as client:
+        response = client.post("/v1/forecast", json=_payload(**overrides))
+    assert response.status_code == 422
+
+
+def test_removed_series_field_is_rejected() -> None:
+    payload = {"horizon": 2, "series": [{"id": "a", "target": [1.0, 2.0, 3.0]}]}
+    with make_client() as client:
+        assert client.post("/v1/forecast", json=payload).status_code == 422
+
+
+def test_legacy_per_series_fields_are_rejected() -> None:
+    payload = {
+        "horizon": 2,
+        "targets": [{"id": "a", "target": [1.0, 2.0, 3.0]}],
+        "quantiles": [],
+    }
+    with make_client() as client:
+        assert client.post("/v1/forecast", json=payload).status_code == 422
+
+
 def test_api_key_required() -> None:
     with make_client(api_key="secret") as client:
         assert client.post("/v1/forecast", json=_payload()).status_code == 401

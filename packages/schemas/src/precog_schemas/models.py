@@ -5,9 +5,15 @@ from __future__ import annotations
 import math
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 QUANTILE_LEVELS: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+
+
+class _StrictRequestModel(BaseModel):
+    """Base for request DTOs: removed/unknown fields must fail closed."""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 def _require_finite(values: list[float], label: str) -> None:
@@ -26,14 +32,14 @@ class Mode(StrEnum):
     multivariate = "multivariate"
 
 
-class HistoricalSeries(BaseModel):
+class HistoricalSeries(_StrictRequestModel):
     """One target or past-only covariate series, ordered oldest to newest."""
 
     id: str = Field(min_length=1)
     values: list[float] = Field(min_length=1)
 
 
-class KnownFutureSeries(BaseModel):
+class KnownFutureSeries(_StrictRequestModel):
     """A covariate whose historical and future values are both known."""
 
     id: str = Field(min_length=1)
@@ -45,7 +51,7 @@ class KnownFutureSeries(BaseModel):
         return len(self.history)
 
 
-class ForecastRequest(BaseModel):
+class ForecastRequest(_StrictRequestModel):
     """Canonical execution request (ADR 0006).
 
     Targets are forecast jointly. ``past_covariates`` are known only during the
