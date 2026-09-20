@@ -468,7 +468,7 @@
     }
 
 
-    /* Deployment selector */
+    /* Deployment selector — shared diagonal divider */
 
     .deployment {
       position: relative;
@@ -505,16 +505,16 @@
     }
 
     .deploy-tab:first-child {
-      padding-left: 48px;
+      padding-left: 34px;
       padding-right: 44px;
-      clip-path: polygon(24px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+      clip-path: polygon(0 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
     }
 
     .deploy-tab:last-child {
       margin-left: -24px;
       padding-left: 48px;
-      padding-right: 44px;
-      clip-path: polygon(24px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+      padding-right: 34px;
+      clip-path: polygon(24px 0, 100% 0, 100% 100%, 0 100%);
     }
 
     .deploy-tab:last-child::before {
@@ -757,12 +757,12 @@
         padding-bottom: 12px;
       }
       .deploy-tab:first-child {
-        padding-left: 34px;
+        padding-left: 16px;
         padding-right: 30px;
       }
       .deploy-tab:last-child {
         padding-left: 34px;
-        padding-right: 20px;
+        padding-right: 16px;
       }
       .deploy-tab-subtitle { display: none; }
       .deploy-content { border-radius: 0 0 var(--radius) var(--radius); }
