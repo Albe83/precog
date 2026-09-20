@@ -104,7 +104,9 @@ jobs:
           set -euo pipefail
           python -m venv .app-pypi
           .app-pypi/bin/pip install --upgrade pip
-          .app-pypi/bin/pip install             "precog-api==${{ inputs.app_version }}"             "precog-mcp==${{ inputs.app_version }}"
+          .app-pypi/bin/pip install \
+            "precog-api==${{ inputs.app_version }}" \
+            "precog-mcp==${{ inputs.app_version }}"
           for command in precog-api precog-mcp precog-download-model; do
             test -x ".app-pypi/bin/$command" || { echo "missing entry point: $command"; exit 1; }
           done
@@ -125,7 +127,7 @@ jobs:
                   str(file)
                   for file in files
                   if pathlib.PurePosixPath(str(file)).suffix.lower()
-                  in {".safetensors", ".gguf", ".pt", ".pth", ".onnx"}
+                  in {".safetensors", ".gguf", ".pt", ".pth", ".onnx", ".bin"}
               ]
               assert not forbidden, f"model payloads found in {distribution}: {forbidden}"
               print(distribution, expected, path)
@@ -149,7 +151,10 @@ jobs:
           done
           if [ "$ready" != "true" ]; then cat app-pypi-api.log; exit 1; fi
           curl -fsS http://127.0.0.1:8000/v1/capabilities > app-pypi-caps.json
-          curl -fsS -X POST http://127.0.0.1:8000/v1/forecast             -H 'content-type: application/json'             -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}'             > app-pypi-forecast.json
+          curl -fsS -X POST http://127.0.0.1:8000/v1/forecast \
+            -H 'content-type: application/json' \
+            -d '{"horizon":3,"targets":[{"id":"s","values":[10,11,12,13,14,15]}],"quantiles":[0.1,0.9]}' \
+            > app-pypi-forecast.json
           .app-pypi/bin/python - <<'PY'
           import json
 
@@ -166,7 +171,10 @@ jobs:
       - name: Installed MCP serves semantic contract against installed API
         run: |
           set -euo pipefail
-          PRECOG_API_URL=http://127.0.0.1:8000           PRECOG_MCP_TRANSPORT=http           PRECOG_MCP_PORT=8765             .app-pypi/bin/precog-mcp > app-pypi-mcp.log 2>&1 &
+          PRECOG_API_URL=http://127.0.0.1:8000 \
+          PRECOG_MCP_TRANSPORT=http \
+          PRECOG_MCP_PORT=8765 \
+            .app-pypi/bin/precog-mcp > app-pypi-mcp.log 2>&1 &
           ready=false
           for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8765/metrics >/dev/null 2>&1; then ready=true; break; fi
@@ -186,8 +194,8 @@ jobs:
         run: |
           {
             echo "### Application PyPI scenario"
-            echo "- precog-api version: `${{ inputs.app_version }}`"
-            echo "- precog-mcp version: `${{ inputs.app_version }}`"
+            echo "- precog-api version: ${{ inputs.app_version }}"
+            echo "- precog-mcp version: ${{ inputs.app_version }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   api-image:
