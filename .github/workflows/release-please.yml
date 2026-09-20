@@ -35,6 +35,9 @@ concurrency:
 
 jobs:
   release-please:
+    # Skip release-please itself when this run only re-dispatches the publisher
+    # (operator retry/test): the tag is supplied explicitly.
+    if: inputs.dispatch_pypi_tag == ''
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -87,8 +90,8 @@ jobs:
   pypi:
     needs: release-please
     if: >-
-      (needs.release-please.outputs.release_created == 'true' && vars.PYPI_APP_PUBLISH == 'true')
-      || inputs.dispatch_pypi_tag != ''
+      always() && ((needs.release-please.outputs.release_created == 'true' && vars.PYPI_APP_PUBLISH == 'true')
+      || inputs.dispatch_pypi_tag != '')
     runs-on: ubuntu-latest
     permissions:
       contents: read
