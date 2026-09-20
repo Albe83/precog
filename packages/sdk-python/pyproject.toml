@@ -1,7 +1,8 @@
 [project]
 name = "precog-client"
 version = "0.1.0"
-description = "Synchronous Python client for the Precog REST API."
+description = "Typed synchronous and asynchronous client for the Precog Execution API."
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
@@ -9,6 +10,10 @@ dependencies = [
     "pydantic>=2.7",
     "precog-schemas",
 ]
+
+[project.urls]
+Repository = "https://github.com/Albe83/precog"
+Documentation = "https://github.com/Albe83/precog/blob/main/docs/sdk.md"
 
 [project.scripts]
 precog = "precog_client.cli:main"
