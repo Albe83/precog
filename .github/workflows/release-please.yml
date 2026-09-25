@@ -44,7 +44,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           # With a fine-grained PAT the release PR runs its checks without the
           # manual approval gate; otherwise fall back to the default token and
