@@ -41,7 +41,7 @@ jobs:
     name: python precog-client==${{ inputs.python_version }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -93,9 +93,9 @@ jobs:
     name: python apps precog-api/mcp==${{ inputs.app_version }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -268,7 +268,7 @@ jobs:
       api_digest: ${{ steps.images.outputs.api_digest }}
       mcp_digest: ${{ steps.images.outputs.mcp_digest }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve the published image digests
         id: images
@@ -305,7 +305,7 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18765/metrics >/dev/null
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
